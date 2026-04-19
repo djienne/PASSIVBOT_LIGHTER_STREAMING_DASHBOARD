@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    font-family: theme('fontFamily.display');
+    background:
+      radial-gradient(1200px 600px at 80% -20%, rgba(96, 165, 250, 0.08), transparent 60%),
+      radial-gradient(900px 500px at 0% 100%, rgba(167, 139, 250, 0.05), transparent 60%),
+      theme('colors.bg');
+  }
+  ::selection { background: rgba(96, 165, 250, 0.35); }
+}
+
+@layer components {
+  .pane {
+    @apply bg-panel border border-border rounded-xl shadow-pane;
+  }
+  .pane-heading {
+    @apply text-subtle text-xs uppercase tracking-widest font-medium;
+  }
+  .metric-value {
+    @apply font-display text-text font-semibold tabular-nums;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full border;
+  }
+  .chip-bull   { @apply chip bg-bull/10 border-bull/30 text-bull; }
+  .chip-bear   { @apply chip bg-bear/10 border-bear/30 text-bear; }
+  .chip-neutral { @apply chip bg-neutral/10 border-neutral/30 text-subtle; }
+  .stream-root { background: #03060d; }
+}
+
+/* Scrollbar (webkit) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e2638; border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: #2a3553; }

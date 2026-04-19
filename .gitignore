@@ -1,0 +1,37 @@
+# secrets
+.env
+.env.*
+!.env.example
+stream_key.txt
+infos/lighter.pem
+infos/passivbot_pnls.json
+
+# data / fixtures we don't commit
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+docs/DISCOVERY.raw.txt
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+backend/dist/
+backend/build/
+backend/*.egg-info/
+
+# node / vite
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.log
+.DS_Store
+
+# editor
+.vscode/
+.idea/

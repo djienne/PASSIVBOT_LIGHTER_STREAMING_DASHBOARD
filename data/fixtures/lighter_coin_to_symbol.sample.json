@@ -1,0 +1,530 @@
+{
+    "0G": [
+        "0G/USDC:USDC"
+    ],
+    "1000BONK": [
+        "1000BONK/USDC:USDC"
+    ],
+    "1000FLOKI": [
+        "1000FLOKI/USDC:USDC"
+    ],
+    "1000PEPE": [
+        "1000PEPE/USDC:USDC"
+    ],
+    "1000SHIB": [
+        "1000SHIB/USDC:USDC"
+    ],
+    "1000TOSHI": [
+        "1000TOSHI/USDC:USDC"
+    ],
+    "2Z": [
+        "2Z/USDC:USDC"
+    ],
+    "AAPL": [
+        "AAPL/USDC:USDC"
+    ],
+    "AAVE": [
+        "AAVE/USDC:USDC"
+    ],
+    "AAVE/USDC": [
+        "AAVE/USDC/USDC:USDC"
+    ],
+    "ADA": [
+        "ADA/USDC:USDC"
+    ],
+    "AERO": [
+        "AERO/USDC:USDC"
+    ],
+    "AI16Z": [
+        "AI16Z/USDC:USDC"
+    ],
+    "AMD": [
+        "AMD/USDC:USDC"
+    ],
+    "AMZN": [
+        "AMZN/USDC:USDC"
+    ],
+    "APEX": [
+        "APEX/USDC:USDC"
+    ],
+    "APT": [
+        "APT/USDC:USDC"
+    ],
+    "ARB": [
+        "ARB/USDC:USDC"
+    ],
+    "ARC": [
+        "ARC/USDC:USDC"
+    ],
+    "ASML": [
+        "ASML/USDC:USDC"
+    ],
+    "ASTER": [
+        "ASTER/USDC:USDC"
+    ],
+    "AUDUSD": [
+        "AUDUSD/USDC:USDC"
+    ],
+    "AVAX": [
+        "AVAX/USDC:USDC"
+    ],
+    "AVNT": [
+        "AVNT/USDC:USDC"
+    ],
+    "AXS": [
+        "AXS/USDC:USDC"
+    ],
+    "AZTEC": [
+        "AZTEC/USDC:USDC"
+    ],
+    "AZTEC/USDC": [
+        "AZTEC/USDC/USDC:USDC"
+    ],
+    "BCH": [
+        "BCH/USDC:USDC"
+    ],
+    "BERA": [
+        "BERA/USDC:USDC"
+    ],
+    "BIRB": [
+        "BIRB/USDC:USDC"
+    ],
+    "BMNR": [
+        "BMNR/USDC:USDC"
+    ],
+    "BNB": [
+        "BNB/USDC:USDC"
+    ],
+    "BONK": [
+        "1000BONK/USDC:USDC"
+    ],
+    "BOTZ": [
+        "BOTZ/USDC:USDC"
+    ],
+    "BRENTOIL": [
+        "BRENTOIL/USDC:USDC"
+    ],
+    "BTC": [
+        "BTC/USDC:USDC"
+    ],
+    "CC": [
+        "CC/USDC:USDC"
+    ],
+    "COIN": [
+        "COIN/USDC:USDC"
+    ],
+    "CRCL": [
+        "CRCL/USDC:USDC"
+    ],
+    "CRO": [
+        "CRO/USDC:USDC"
+    ],
+    "CRV": [
+        "CRV/USDC:USDC"
+    ],
+    "DASH": [
+        "DASH/USDC:USDC"
+    ],
+    "DIA": [
+        "DIA/USDC:USDC"
+    ],
+    "DOGE": [
+        "DOGE/USDC:USDC"
+    ],
+    "DOLO": [
+        "DOLO/USDC:USDC"
+    ],
+    "DOT": [
+        "DOT/USDC:USDC"
+    ],
+    "DUSK": [
+        "DUSK/USDC:USDC"
+    ],
+    "DYDX": [
+        "DYDX/USDC:USDC"
+    ],
+    "EDEN": [
+        "EDEN/USDC:USDC"
+    ],
+    "EDGE": [
+        "EDGE/USDC:USDC"
+    ],
+    "EIGEN": [
+        "EIGEN/USDC:USDC"
+    ],
+    "ENA": [
+        "ENA/USDC:USDC"
+    ],
+    "ETH": [
+        "ETH/USDC:USDC"
+    ],
+    "ETH/USDC": [
+        "ETH/USDC/USDC:USDC"
+    ],
+    "ETHFI": [
+        "ETHFI/USDC:USDC"
+    ],
+    "EURUSD": [
+        "EURUSD/USDC:USDC"
+    ],
+    "FARTCOIN": [
+        "FARTCOIN/USDC:USDC"
+    ],
+    "FF": [
+        "FF/USDC:USDC"
+    ],
+    "FIL": [
+        "FIL/USDC:USDC"
+    ],
+    "FLOKI": [
+        "1000FLOKI/USDC:USDC"
+    ],
+    "FOGO": [
+        "FOGO/USDC:USDC"
+    ],
+    "GBPUSD": [
+        "GBPUSD/USDC:USDC"
+    ],
+    "GMX": [
+        "GMX/USDC:USDC"
+    ],
+    "GOOGL": [
+        "GOOGL/USDC:USDC"
+    ],
+    "GRASS": [
+        "GRASS/USDC:USDC"
+    ],
+    "HANMI": [
+        "HANMI/USDC:USDC"
+    ],
+    "HBAR": [
+        "HBAR/USDC:USDC"
+    ],
+    "HOOD": [
+        "HOOD/USDC:USDC"
+    ],
+    "HYPE": [
+        "HYPE/USDC:USDC"
+    ],
+    "HYUNDAI": [
+        "HYUNDAI/USDC:USDC"
+    ],
+    "HYUNDAIUSD": [
+        "HYUNDAIUSD/USDC:USDC"
+    ],
+    "ICP": [
+        "ICP/USDC:USDC"
+    ],
+    "INTC": [
+        "INTC/USDC:USDC"
+    ],
+    "IP": [
+        "IP/USDC:USDC"
+    ],
+    "IWM": [
+        "IWM/USDC:USDC"
+    ],
+    "JTO": [
+        "JTO/USDC:USDC"
+    ],
+    "JUP": [
+        "JUP/USDC:USDC"
+    ],
+    "KAITO": [
+        "KAITO/USDC:USDC"
+    ],
+    "KRCOMP": [
+        "KRCOMP/USDC:USDC"
+    ],
+    "LAUNCHCOIN": [
+        "LAUNCHCOIN/USDC:USDC"
+    ],
+    "LDO": [
+        "LDO/USDC:USDC"
+    ],
+    "LDO/USDC": [
+        "LDO/USDC/USDC:USDC"
+    ],
+    "LINEA": [
+        "LINEA/USDC:USDC"
+    ],
+    "LINK": [
+        "LINK/USDC:USDC"
+    ],
+    "LINK/USDC": [
+        "LINK/USDC/USDC:USDC"
+    ],
+    "LIT": [
+        "LIT/USDC:USDC"
+    ],
+    "LIT/USDC": [
+        "LIT/USDC/USDC:USDC"
+    ],
+    "LTC": [
+        "LTC/USDC:USDC"
+    ],
+    "MAGS": [
+        "MAGS/USDC:USDC"
+    ],
+    "MEGA": [
+        "MEGA/USDC:USDC"
+    ],
+    "MET": [
+        "MET/USDC:USDC"
+    ],
+    "META": [
+        "META/USDC:USDC"
+    ],
+    "MKR": [
+        "MKR/USDC:USDC"
+    ],
+    "MNT": [
+        "MNT/USDC:USDC"
+    ],
+    "MON": [
+        "MON/USDC:USDC"
+    ],
+    "MORPHO": [
+        "MORPHO/USDC:USDC"
+    ],
+    "MSFT": [
+        "MSFT/USDC:USDC"
+    ],
+    "MSTR": [
+        "MSTR/USDC:USDC"
+    ],
+    "MYX": [
+        "MYX/USDC:USDC"
+    ],
+    "NATGAS": [
+        "NATGAS/USDC:USDC"
+    ],
+    "NEAR": [
+        "NEAR/USDC:USDC"
+    ],
+    "NMR": [
+        "NMR/USDC:USDC"
+    ],
+    "NVDA": [
+        "NVDA/USDC:USDC"
+    ],
+    "NZDUSD": [
+        "NZDUSD/USDC:USDC"
+    ],
+    "ONDO": [
+        "ONDO/USDC:USDC"
+    ],
+    "OP": [
+        "OP/USDC:USDC"
+    ],
+    "PAXG": [
+        "PAXG/USDC:USDC"
+    ],
+    "PENDLE": [
+        "PENDLE/USDC:USDC"
+    ],
+    "PENGU": [
+        "PENGU/USDC:USDC"
+    ],
+    "PEPE": [
+        "1000PEPE/USDC:USDC"
+    ],
+    "PIPPIN": [
+        "PIPPIN/USDC:USDC"
+    ],
+    "PLTR": [
+        "PLTR/USDC:USDC"
+    ],
+    "POL": [
+        "POL/USDC:USDC"
+    ],
+    "POPCAT": [
+        "POPCAT/USDC:USDC"
+    ],
+    "PROVE": [
+        "PROVE/USDC:USDC"
+    ],
+    "PUMP": [
+        "PUMP/USDC:USDC"
+    ],
+    "PYTH": [
+        "PYTH/USDC:USDC"
+    ],
+    "QQQ": [
+        "QQQ/USDC:USDC"
+    ],
+    "RESOLV": [
+        "RESOLV/USDC:USDC"
+    ],
+    "RIVER": [
+        "RIVER/USDC:USDC"
+    ],
+    "ROBO": [
+        "ROBO/USDC:USDC"
+    ],
+    "S": [
+        "S/USDC:USDC"
+    ],
+    "SAMSUNG": [
+        "SAMSUNG/USDC:USDC"
+    ],
+    "SAMSUNGUSD": [
+        "SAMSUNGUSD/USDC:USDC"
+    ],
+    "SEI": [
+        "SEI/USDC:USDC"
+    ],
+    "SHIB": [
+        "1000SHIB/USDC:USDC"
+    ],
+    "SKHYNIX": [
+        "SKHYNIX/USDC:USDC"
+    ],
+    "SKHYNIXUSD": [
+        "SKHYNIXUSD/USDC:USDC"
+    ],
+    "SKR": [
+        "SKR/USDC:USDC"
+    ],
+    "SKY": [
+        "SKY/USDC:USDC"
+    ],
+    "SKY/USDC": [
+        "SKY/USDC/USDC:USDC"
+    ],
+    "SNDK": [
+        "SNDK/USDC:USDC"
+    ],
+    "SOL": [
+        "SOL/USDC:USDC"
+    ],
+    "SPX": [
+        "SPX/USDC:USDC"
+    ],
+    "SPY": [
+        "SPY/USDC:USDC"
+    ],
+    "STABLE": [
+        "STABLE/USDC:USDC"
+    ],
+    "STBL": [
+        "STBL/USDC:USDC"
+    ],
+    "STRC": [
+        "STRC/USDC:USDC"
+    ],
+    "STRK": [
+        "STRK/USDC:USDC"
+    ],
+    "SUI": [
+        "SUI/USDC:USDC"
+    ],
+    "SYRUP": [
+        "SYRUP/USDC:USDC"
+    ],
+    "TAO": [
+        "TAO/USDC:USDC"
+    ],
+    "TIA": [
+        "TIA/USDC:USDC"
+    ],
+    "TON": [
+        "TON/USDC:USDC"
+    ],
+    "TOSHI": [
+        "1000TOSHI/USDC:USDC"
+    ],
+    "TRUMP": [
+        "TRUMP/USDC:USDC"
+    ],
+    "TRX": [
+        "TRX/USDC:USDC"
+    ],
+    "TSLA": [
+        "TSLA/USDC:USDC"
+    ],
+    "UNI": [
+        "UNI/USDC:USDC"
+    ],
+    "UNI/USDC": [
+        "UNI/USDC/USDC:USDC"
+    ],
+    "URA": [
+        "URA/USDC:USDC"
+    ],
+    "USDCAD": [
+        "USDCAD/USDC:USDC"
+    ],
+    "USDCHF": [
+        "USDCHF/USDC:USDC"
+    ],
+    "USDJPY": [
+        "USDJPY/USDC:USDC"
+    ],
+    "USDKRW": [
+        "USDKRW/USDC:USDC"
+    ],
+    "USELESS": [
+        "USELESS/USDC:USDC"
+    ],
+    "VIRTUAL": [
+        "VIRTUAL/USDC:USDC"
+    ],
+    "VVV": [
+        "VVV/USDC:USDC"
+    ],
+    "WIF": [
+        "WIF/USDC:USDC"
+    ],
+    "WLD": [
+        "WLD/USDC:USDC"
+    ],
+    "WLFI": [
+        "WLFI/USDC:USDC"
+    ],
+    "WTI": [
+        "WTI/USDC:USDC"
+    ],
+    "XAG": [
+        "XAG/USDC:USDC"
+    ],
+    "XAU": [
+        "XAU/USDC:USDC"
+    ],
+    "XCU": [
+        "XCU/USDC:USDC"
+    ],
+    "XLM": [
+        "XLM/USDC:USDC"
+    ],
+    "XMR": [
+        "XMR/USDC:USDC"
+    ],
+    "XPD": [
+        "XPD/USDC:USDC"
+    ],
+    "XPL": [
+        "XPL/USDC:USDC"
+    ],
+    "XPT": [
+        "XPT/USDC:USDC"
+    ],
+    "XRP": [
+        "XRP/USDC:USDC"
+    ],
+    "YZY": [
+        "YZY/USDC:USDC"
+    ],
+    "ZEC": [
+        "ZEC/USDC:USDC"
+    ],
+    "ZK": [
+        "ZK/USDC:USDC"
+    ],
+    "ZORA": [
+        "ZORA/USDC:USDC"
+    ],
+    "ZRO": [
+        "ZRO/USDC:USDC"
+    ]
+}
