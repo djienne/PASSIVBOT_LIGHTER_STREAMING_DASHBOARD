@@ -29,6 +29,8 @@ backend/*.egg-info/
 node_modules/
 frontend/dist/
 frontend/.vite/
+frontend/tsconfig.tsbuildinfo
+frontend/*.tsbuildinfo
 *.log
 .DS_Store
 
