@@ -12,10 +12,12 @@ const UP = "#34d399";
 const DOWN = "#f87171";
 const WICK = "#64748b";
 const AVG_LINE = "#a78bfa";
-const MARK_LIN = "#60a5fa";
+const LIVE_CLOSE_LINE = "#60a5fa";
 const ZOOM_TOGGLE_MS = 30_000;
+const ZOOM_SEQUENCE = ["default", "zoomed", "twoday"] as const;
 
 type VisibleRange = { from: Time; to: Time };
+type ZoomMode = (typeof ZOOM_SEQUENCE)[number];
 
 function toCandleData(c: Candle) {
   return { time: Math.floor(c.t / 1000) as Time, open: c.o, high: c.h, low: c.l, close: c.c };
@@ -46,7 +48,7 @@ function fillToMarker(ev: TimelineEvent): SeriesMarker<Time> | null {
 function computeTradeFocusedRanges(
   candles: Candle[],
   markers: SeriesMarker<Time>[],
-): { defaultRange: VisibleRange; zoomedRange: VisibleRange } | null {
+): { defaultRange: VisibleRange; zoomedRange: VisibleRange; twoDayRange: VisibleRange } | null {
   if (candles.length === 0) return null;
 
   const MIN_SPAN_SECONDS = 90 * 60;
@@ -84,10 +86,12 @@ function computeTradeFocusedRanges(
     45 * 60,
   );
   const zoomedStart = Math.max(end - zoomedSpan, firstCandle);
+  const twoDayStart = Math.max(lastCandle - 48 * 60 * 60, firstCandle);
 
   return {
     defaultRange: { from: start as Time, to: end as Time },
     zoomedRange: { from: zoomedStart as Time, to: end as Time },
+    twoDayRange: { from: twoDayStart as Time, to: lastCandle as Time },
   };
 }
 
@@ -96,12 +100,13 @@ export default function ChartPanel() {
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const avgEntryLineRef = useRef<ReturnType<ISeriesApi<"Candlestick">["createPriceLine"]> | null>(null);
-  const markLineRef = useRef<ReturnType<ISeriesApi<"Candlestick">["createPriceLine"]> | null>(null);
-  const [zoomMode, setZoomMode] = useState<"default" | "zoomed">("default");
+  const liveCloseLineRef = useRef<ReturnType<ISeriesApi<"Candlestick">["createPriceLine"]> | null>(null);
+  const [zoomMode, setZoomMode] = useState<ZoomMode>("default");
 
   const candles = useDash(s => s.candles);
   const timeline = useDash(s => s.timeline);
   const position = useDash(s => s.position);
+  const liveClose = candles.length > 0 ? candles[candles.length - 1].c : position.mark;
 
   const positionRef = useRef(position);
   positionRef.current = position;
@@ -162,7 +167,7 @@ export default function ChartPanel() {
       chartRef.current = null;
       candleSeriesRef.current = null;
       avgEntryLineRef.current = null;
-      markLineRef.current = null;
+      liveCloseLineRef.current = null;
     };
   }, []);
 
@@ -183,7 +188,7 @@ export default function ChartPanel() {
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      setZoomMode(prev => (prev === "default" ? "zoomed" : "default"));
+      setZoomMode(prev => ZOOM_SEQUENCE[(ZOOM_SEQUENCE.indexOf(prev) + 1) % ZOOM_SEQUENCE.length]);
     }, ZOOM_TOGGLE_MS);
     return () => window.clearInterval(id);
   }, []);
@@ -191,9 +196,11 @@ export default function ChartPanel() {
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart || !ranges) return;
-    chart.timeScale().setVisibleRange(
-      zoomMode === "zoomed" ? ranges.zoomedRange : ranges.defaultRange,
-    );
+    const nextRange =
+      zoomMode === "zoomed" ? ranges.zoomedRange :
+      zoomMode === "twoday" ? ranges.twoDayRange :
+      ranges.defaultRange;
+    chart.timeScale().setVisibleRange(nextRange);
   }, [ranges, zoomMode]);
 
   useEffect(() => {
@@ -215,37 +222,49 @@ export default function ChartPanel() {
       });
     }
 
-    if (markLineRef.current) {
-      s.removePriceLine(markLineRef.current);
-      markLineRef.current = null;
+    if (liveCloseLineRef.current) {
+      s.removePriceLine(liveCloseLineRef.current);
+      liveCloseLineRef.current = null;
     }
-    if (position.mark > 0) {
-      markLineRef.current = s.createPriceLine({
-        price: position.mark,
-        color: MARK_LIN,
-        lineWidth: 1,
-        lineStyle: LineStyle.Dotted,
+    if (liveClose > 0) {
+      liveCloseLineRef.current = s.createPriceLine({
+        price: liveClose,
+        color: LIVE_CLOSE_LINE,
+        lineWidth: 2,
+        lineStyle: LineStyle.Solid,
         axisLabelVisible: true,
-        title: "mark",
+        axisLabelColor: LIVE_CLOSE_LINE,
+        axisLabelTextColor: BG,
+        title: "live close",
       });
     }
-  }, [position.avg_entry, position.size, position.mark]);
+  }, [position.avg_entry, position.size, liveClose]);
 
   return (
     <div className="pane relative overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border/70 bg-panel/80 backdrop-blur flex-none">
         <div className="flex items-center gap-3">
-          <span className="pane-heading">HYPE - 1m - auto zoom cycle</span>
+          <div className="flex items-center gap-2">
+            <img
+              src="/hype_icon.png"
+              alt="HYPE"
+              className="h-5 w-5 rounded-full select-none shadow-[0_0_12px_rgba(140,242,220,0.2)]"
+              draggable={false}
+            />
+            <span className="pane-heading">HYPE - 1m - auto zoom cycle</span>
+          </div>
           <span className="text-subtle text-xs font-mono">
             {candles.length} candles - {markers.length} markers
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs font-mono">
-          <span className="text-subtle">{zoomMode === "zoomed" ? "detail view" : "context view"}</span>
+          <span className="text-subtle">
+            {zoomMode === "zoomed" ? "detail view" : zoomMode === "twoday" ? "2 day view" : "context view"}
+          </span>
           <LegendDot color={UP} label="entry" />
           <LegendDot color={DOWN} label="close" />
           <LegendDot color={AVG_LINE} label="avg entry" dashed />
-          <LegendDot color={MARK_LIN} label="mark" dotted />
+          <LegendDot color={LIVE_CLOSE_LINE} label="live close" />
         </div>
       </div>
       <div ref={containerRef} className="flex-1 min-h-0" />

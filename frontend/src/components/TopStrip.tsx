@@ -7,6 +7,7 @@ function MetricCard(props: {
   label: string;
   value: string;
   sub?: string;
+  note?: string;
   tone?: "pos" | "neg" | "neutral";
   accent?: string;
 }) {
@@ -20,6 +21,7 @@ function MetricCard(props: {
       <div className="pane-heading">{props.label}</div>
       <div className={`metric-value text-2xl ${toneClass}`}>{props.value}</div>
       {props.sub && <div className="text-subtle text-xs font-mono">{props.sub}</div>}
+      {props.note && <div className="text-[10px] uppercase tracking-[0.16em] text-bull font-semibold">{props.note}</div>}
       {props.accent && (
         <div className="absolute inset-x-4 top-0 h-0.5 rounded-b-full" style={{ background: props.accent }} />
       )}

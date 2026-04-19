@@ -107,6 +107,14 @@ class VpsLatencySnapshot(BaseModel):
     method: Literal["icmp", "tcp"] = "icmp"
 
 
+class FundingSnapshot(BaseModel):
+    ts: int
+    market_id: int
+    current_rate_pct_hour: float
+    annualized_apr_pct: float
+    funding_timestamp: int | None = None
+
+
 class TimelineEvent(BaseModel):
     event_id: str
     ts: int

@@ -87,6 +87,14 @@ export interface OrderAggregate {
   fills_count: number;
 }
 
+export interface FundingSnapshot {
+  ts: number;
+  market_id: number;
+  current_rate_pct_hour: number;
+  annualized_apr_pct: number;
+  funding_timestamp: number | null;
+}
+
 export interface VpsLatencySnapshot {
   ts: number;
   region: string;
@@ -110,6 +118,7 @@ export interface Bootstrap {
   position: PositionView;
   balance: BalanceSnapshot | null;
   order_aggregate: OrderAggregate | null;
+  funding: FundingSnapshot | null;
   metrics: MetricsSnapshot;
   timeline: TimelineEvent[];
   health: HealthSnapshot | null;
@@ -125,5 +134,6 @@ export type Envelope =
   | { v: number; type: "health.update"; id: string; ts: number; cursor: number; data: HealthSnapshot | { ws_connected: boolean } }
   | { v: number; type: "balance.update"; id: string; ts: number; cursor: number; data: BalanceSnapshot }
   | { v: number; type: "order.update"; id: string; ts: number; cursor: number; data: OrderAggregate }
+  | { v: number; type: "funding.update"; id: string; ts: number; cursor: number; data: FundingSnapshot }
   | { v: number; type: "vps_latency.update"; id: string; ts: number; cursor: number; data: VpsLatencySnapshot }
   | { v: number; type: "error"; id: string; ts: number; cursor: number; data: Record<string, unknown> };

@@ -28,6 +28,7 @@ FORWARD_TOPICS = {
     "health.update": "health.update",
     "balance.update": "balance.update",
     "order.update": "order.update",
+    "funding.update": "funding.update",
     "vps_latency.update": "vps_latency.update",
     "ws.connected": "health.update",
 }
@@ -80,6 +81,13 @@ def _to_envelope(topic: str, payload) -> dict:
         return envelope(
             type_="order.update",
             id_=f"orders:{payload.snapshot_ts}",
+            cursor=0,
+            data=payload.model_dump(),
+        ).model_dump()
+    if topic == "funding.update":
+        return envelope(
+            type_="funding.update",
+            id_=f"funding:{payload.ts}",
             cursor=0,
             data=payload.model_dump(),
         ).model_dump()

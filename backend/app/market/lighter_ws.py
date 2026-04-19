@@ -1,9 +1,9 @@
 """Lighter public WS client.
 
-Subscribes to ``ticker/{market_id}`` for HYPE. Maintains the current 1m
-candle in memory; each ticker print updates h/l/c and emits a
-``candle.update`` event. On minute rollover the current candle is closed
-(persisted via repos) and a new one opens, emitting ``candle.new``.
+Subscribes to ``ticker/{market_id}`` and ``market_stats/{market_id}`` for HYPE.
+Maintains the current 1m candle in memory; each ticker print updates h/l/c and
+emits a ``candle.update`` event. On minute rollover the current candle is
+closed (persisted via repos) and a new one opens, emitting ``candle.new``.
 
 The ticker payload (from probe):
 
@@ -30,7 +30,7 @@ from ..envelope import now_ms
 from ..events.bus import bus
 from ..logging import log
 from ..metrics.engine import on_ticker as metrics_on_ticker
-from ..models import Candle
+from ..models import Candle, FundingSnapshot
 from ..persistence import repos
 
 
@@ -38,11 +38,22 @@ def _minute_bucket(ts_ms: int) -> int:
     return (ts_ms // 60_000) * 60_000
 
 
+def annualize_hourly_funding_rate_pct(rate_pct_hour: float) -> float:
+    """Funding payments occur at each hour mark, so annualized APR is the
+    hourly rate multiplied by 24 hours and 365.25 days.
+
+    The websocket's `current_funding_rate` field is treated as an hourly
+    percentage value (e.g. `0.0057` means 0.0057%/hour).
+    """
+    return rate_pct_hour * 24 * 365.25
+
+
 class LighterWSClient:
     def __init__(self) -> None:
         self._stop = asyncio.Event()
         self.current_candle: Candle | None = None
         self.last_price: float = 0.0
+        self.latest_funding: FundingSnapshot | None = None
         self.connected: bool = False
 
     def stop(self) -> None:
@@ -85,12 +96,37 @@ class LighterWSClient:
         self.current_candle = updated
         await bus.publish("candle.update", updated)
 
+    async def _handle_market_stats(self, msg: dict) -> None:
+        stats = msg.get("market_stats") or {}
+        try:
+            market_id = int(stats.get("market_id", settings.market_id))
+            current_rate_pct_hour = float(stats["current_funding_rate"])
+        except (KeyError, ValueError, TypeError):
+            return
+
+        funding_timestamp = stats.get("funding_timestamp")
+        try:
+            funding_timestamp = int(funding_timestamp) if funding_timestamp is not None else None
+        except (ValueError, TypeError):
+            funding_timestamp = None
+
+        snap = FundingSnapshot(
+            ts=now_ms(),
+            market_id=market_id,
+            current_rate_pct_hour=current_rate_pct_hour,
+            annualized_apr_pct=annualize_hourly_funding_rate_pct(current_rate_pct_hour),
+            funding_timestamp=funding_timestamp,
+        )
+        self.latest_funding = snap
+        await bus.publish("funding.update", snap)
+
     async def _run_once(self) -> None:
         url = settings.lighter_ws_url
         mid = settings.market_id
         log.info("lighter_ws: connecting", url=url, market_id=mid)
         async with websockets.connect(url, ping_interval=15, close_timeout=5) as ws:
             await ws.send(json.dumps({"type": "subscribe", "channel": f"ticker/{mid}"}))
+            await ws.send(json.dumps({"type": "subscribe", "channel": f"market_stats/{mid}"}))
             self.connected = True
             await bus.publish("ws.connected", True)
             try:
@@ -103,6 +139,8 @@ class LighterWSClient:
                     mtype = msg.get("type", "")
                     if mtype.startswith("update/ticker") or mtype.startswith("subscribed/ticker"):
                         await self._handle_ticker(msg)
+                    elif mtype.startswith("update/market_stats") or mtype.startswith("subscribed/market_stats"):
+                        await self._handle_market_stats(msg)
             finally:
                 self.connected = False
                 await bus.publish("ws.connected", False)

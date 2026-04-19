@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useMemo } from "react";
 import { useDash } from "../lib/store";
 import type { TimelineEvent } from "../lib/types";
-import { fmtNumber, fmtTimeShort, fmtUSD } from "../lib/format";
+import { fmtNumber, fmtUSD } from "../lib/format";
 
 const VISIBLE = 10;
 const GROUP_WINDOW_MS = 10_000;
@@ -153,5 +153,19 @@ function Dot({ ev }: { ev: Pick<FeedRow, "side" | "win_loss"> }) {
 }
 
 function TimeCell({ ts }: { ts: number }) {
-  return <span className="text-[11px] font-mono text-dim w-16 tabular-nums select-none">{fmtTimeShort(ts)}</span>;
+  const d = new Date(ts);
+  const date = d.toLocaleDateString(undefined, { day: "2-digit", month: "short", timeZone: "UTC" });
+  const time = d.toLocaleTimeString(undefined, {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  });
+  return (
+    <span className="text-[11px] font-mono text-dim w-24 tabular-nums select-none leading-tight">
+      {date}
+      <br />
+      {time} UTC
+    </span>
+  );
 }

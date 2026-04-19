@@ -49,6 +49,7 @@ async def compute_snapshot() -> MetricsSnapshot:
     total_pnl = realized + unrealized
     equity = baseline + total_pnl
     return_pct = (total_pnl / baseline) * 100 if baseline > 0 else 0.0
+    realized_return_pct = (realized / baseline) * 100 if baseline > 0 else 0.0
     ts_now = now_ms()
 
     # Fill-derived equity path for Sharpe and cold-start fallback drawdown.
@@ -94,7 +95,7 @@ async def compute_snapshot() -> MetricsSnapshot:
         last_trade_days = 0.0
 
     cagr = compute_cagr(
-        total_return_pct=return_pct,
+        total_return_pct=realized_return_pct,
         period_days=period_days,
         last_year_return_pct=None,  # extended when history >= 1y
     )
