@@ -7,6 +7,7 @@ import OrdersPanel from "../components/OrdersPanel";
 import ActionFeed from "../components/ActionFeed";
 import HealthFooter from "../components/HealthFooter";
 import VpsLatencyChip from "../components/VpsLatencyChip";
+import CurrentTimeChip from "../components/CurrentTimeChip";
 import AnimationCoordinator from "../components/anim/AnimationCoordinator";
 import { fetchBootstrap } from "../lib/api";
 import { makeWS } from "../lib/ws";
@@ -77,7 +78,8 @@ export default function Stream() {
                 draggable={false}
               />
             </div>
-            <div className="ml-4">
+            <div className="ml-4 flex flex-col gap-2">
+              <CurrentTimeChip />
               <VpsLatencyChip />
             </div>
           </div>
