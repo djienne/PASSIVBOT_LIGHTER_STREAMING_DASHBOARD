@@ -28,6 +28,7 @@ async def bootstrap(since: int | None = Query(default=None)) -> dict:
     latest_agg = await repos.latest_order_aggregate()
     latest_latency = await repos.latest_vps_latency()
     latest_funding = ws_client.latest_funding
+    latest_funding_total = ws_client.latest_funding_total
     cursor = await repos.current_cursor()
 
     if since is not None:
@@ -62,6 +63,7 @@ async def bootstrap(since: int | None = Query(default=None)) -> dict:
         "balance": latest_balance.model_dump() if latest_balance else None,
         "order_aggregate": latest_agg.model_dump() if latest_agg else None,
         "funding": latest_funding.model_dump() if latest_funding else None,
+        "funding_total": latest_funding_total.model_dump() if latest_funding_total else None,
         "metrics": metrics.model_dump(),
         "timeline": timeline,
         "health": latest_health.model_dump() if latest_health else None,

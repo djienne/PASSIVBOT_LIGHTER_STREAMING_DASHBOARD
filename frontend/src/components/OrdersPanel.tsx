@@ -1,9 +1,10 @@
 import { useDash } from "../lib/store";
-import { fmtDuration, fmtPct } from "../lib/format";
+import { fmtDuration, fmtPct, fmtUSD } from "../lib/format";
 
 export default function OrdersPanel() {
   const agg = useDash(s => s.orderAggregate);
   const funding = useDash(s => s.funding);
+  const fundingTotal = useDash(s => s.fundingTotal);
   const health = useDash(s => s.health);
 
   const openApprox = agg ? Math.max(0, agg.orders_placed - agg.orders_cancelled - agg.fills_count) : 0;
@@ -29,6 +30,7 @@ export default function OrdersPanel() {
           <div className="text-sm font-mono text-subtle">
             Current funding fees (APR): <span className={fundingToneClass(funding?.annualized_apr_pct)}>{fmtPct(funding?.annualized_apr_pct)}</span>
           </div>
+          <TotalFundingLine total={fundingTotal} />
         </>
       ) : (
         <div className="flex-1 grid place-items-center text-subtle text-sm">
@@ -40,9 +42,39 @@ export default function OrdersPanel() {
             <span className="text-sm font-mono text-subtle">
               Current funding fees (APR): <span className={fundingToneClass(funding?.annualized_apr_pct)}>{fmtPct(funding?.annualized_apr_pct)}</span>
             </span>
+            <TotalFundingLine total={fundingTotal} />
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function TotalFundingLine({ total }: { total: import("../lib/types").FundingTotal | null }) {
+  if (!total) {
+    return (
+      <div className="text-xs font-mono text-dim">
+        Total funding since start: <span className="text-subtle">estimating...</span>
+      </div>
+    );
+  }
+  const paid = total.total_paid_usd;      // + = we paid, − = we received
+  // Display sign convention: show a positive number when we RECEIVED (a gain)
+  // and a negative number when we PAID (a cost) — matches the PnL convention
+  // used across the dashboard.
+  const ourPnl = -paid;
+  const tone =
+    ourPnl > 0 ? "text-bull" :
+    ourPnl < 0 ? "text-bear" :
+    "text-text";
+  const label = paid > 0 ? "paid" : paid < 0 ? "earned" : "net";
+  return (
+    <div
+      className="text-sm font-mono text-subtle"
+      title={`${total.samples_count} hourly samples over ${total.hours_covered}h since first fill · public REST reconstruction (approximate)`}
+    >
+      Total funding fees since start: <span className={tone}>{fmtUSD(ourPnl, 2)}</span>
+      <span className="text-dim ml-1">({label})</span>
     </div>
   );
 }

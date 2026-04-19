@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type {
   BalanceSnapshot, Bootstrap, Candle, Envelope, FillEvent,
-  FundingSnapshot, HealthSnapshot, MetricsSnapshot, OrderAggregate, PositionView, TimelineEvent,
+  FundingSnapshot, FundingTotal, HealthSnapshot, MetricsSnapshot, OrderAggregate, PositionView, TimelineEvent,
   VpsLatencySnapshot,
 } from "./types";
 
@@ -20,6 +20,7 @@ export interface DashState {
   balance: BalanceSnapshot | null;
   orderAggregate: OrderAggregate | null;
   funding: FundingSnapshot | null;
+  fundingTotal: FundingTotal | null;
   metrics: MetricsSnapshot | null;
 
   timeline: TimelineEvent[];
@@ -102,6 +103,7 @@ export const useDash = create<DashState>((set) => ({
   balance: null,
   orderAggregate: null,
   funding: null,
+  fundingTotal: null,
   metrics: null,
 
   timeline: [],
@@ -124,6 +126,7 @@ export const useDash = create<DashState>((set) => ({
     balance: b.balance,
     orderAggregate: b.order_aggregate,
     funding: b.funding,
+    fundingTotal: b.funding_total,
     metrics: b.metrics,
     timeline: b.timeline,
     health: b.health,
@@ -180,6 +183,8 @@ export const useDash = create<DashState>((set) => ({
         return { orderAggregate: e.data as OrderAggregate };
       case "funding.update":
         return { funding: e.data as FundingSnapshot };
+      case "funding_total.update":
+        return { fundingTotal: e.data as FundingTotal };
       case "health.update": {
         const d = e.data as unknown as (HealthSnapshot | { ws_connected: boolean });
         if ("ts" in d) return { health: d };

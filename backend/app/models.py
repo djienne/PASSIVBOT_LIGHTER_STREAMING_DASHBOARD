@@ -115,6 +115,23 @@ class FundingSnapshot(BaseModel):
     funding_timestamp: int | None = None
 
 
+class FundingTotal(BaseModel):
+    """Estimated total funding paid / received on HYPE since the bot's
+    first fill, reconstructed from public REST data only.
+
+    Positive values mean we paid net funding; negative values mean we
+    received net funding. Accurate within rounding — does not account
+    for intra-hour position changes, but hourly resolution matches
+    Lighter's funding cadence so the error band is small.
+    """
+    ts: int
+    start_ts: int
+    total_paid_usd: float
+    samples_count: int
+    hours_covered: int
+    method: Literal["rest_hourly"] = "rest_hourly"
+
+
 class TimelineEvent(BaseModel):
     event_id: str
     ts: int

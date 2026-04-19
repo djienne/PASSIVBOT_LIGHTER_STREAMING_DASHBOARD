@@ -54,6 +54,7 @@ class LighterWSClient:
         self.current_candle: Candle | None = None
         self.last_price: float = 0.0
         self.latest_funding: FundingSnapshot | None = None
+        self.latest_funding_total = None  # type: ignore[assignment]  # models.FundingTotal | None
         self.connected: bool = False
 
     def stop(self) -> None:

@@ -16,6 +16,7 @@ from .api.routes_dev import router as dev_router
 from .api.routes_http import router as http_router
 from .api.routes_ws import router as ws_router
 from .collector.cache_poller import CachePoller
+from .collector.funding_total import estimator as funding_total_estimator
 from .collector.log_tail import HealthLogTail
 from .collector.ssh_client import make_transport
 from .collector.vps_latency import VpsLatencyProbe
@@ -62,6 +63,7 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
         asyncio.create_task(market_ws.run(), name="market_ws"),
         asyncio.create_task(metrics_loop(), name="metrics_loop"),
         asyncio.create_task(latency_probe.run(), name="vps_latency"),
+        asyncio.create_task(funding_total_estimator.run(), name="funding_total"),
     ]
     log.info("startup: background tasks launched", count=len(tasks))
     try:

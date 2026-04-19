@@ -210,17 +210,38 @@ async def latest_metrics() -> MetricsSnapshot | None:
 
 
 async def historical_equity_curve() -> list[tuple[int, float]]:
-    """Sampled equity history from previously saved metrics snapshots."""
+    """Sampled equity history from previously saved metrics snapshots.
+
+    Drops cold-start phantoms: samples where `realized_pnl == 0` while a
+    later sample in the same session has non-zero realized. That pattern
+    only happens if metrics ran before the collector finished ingesting
+    fills, so the sample doesn't reflect true equity at that moment.
+    """
     async with db.conn.execute(
         "SELECT ts, json FROM metrics_snapshots ORDER BY ts ASC"
     ) as cur:
         rows = await cur.fetchall()
 
-    out: list[tuple[int, float]] = []
+    snaps: list[tuple[int, MetricsSnapshot]] = []
     for row in rows:
         snap = MetricsSnapshot.model_validate_json(row[1])
-        out.append((int(row[0]), snap.baseline + snap.total_pnl))
-    return out
+        snaps.append((int(row[0]), snap))
+
+    if not snaps:
+        return []
+
+    max_realized = max(s.realized_pnl for _, s in snaps)
+    filtered: list[tuple[int, MetricsSnapshot]] = []
+    for ts, s in snaps:
+        # Drop samples that look like cold-start phantoms: no realized PnL
+        # even though some later sample in this session recorded positive
+        # realized PnL (i.e. fills existed but the snapshot captured state
+        # before the collector ingested them).
+        if s.realized_pnl == 0 and max_realized > 1.0:
+            continue
+        filtered.append((ts, s))
+
+    return [(ts, s.baseline + s.total_pnl) for ts, s in filtered]
 
 
 async def save_health(h: HealthSnapshot) -> None:

@@ -95,6 +95,15 @@ export interface FundingSnapshot {
   funding_timestamp: number | null;
 }
 
+export interface FundingTotal {
+  ts: number;
+  start_ts: number;
+  total_paid_usd: number;  // positive = we paid, negative = we received
+  samples_count: number;
+  hours_covered: number;
+  method: "rest_hourly";
+}
+
 export interface VpsLatencySnapshot {
   ts: number;
   region: string;
@@ -119,6 +128,7 @@ export interface Bootstrap {
   balance: BalanceSnapshot | null;
   order_aggregate: OrderAggregate | null;
   funding: FundingSnapshot | null;
+  funding_total: FundingTotal | null;
   metrics: MetricsSnapshot;
   timeline: TimelineEvent[];
   health: HealthSnapshot | null;
@@ -135,5 +145,6 @@ export type Envelope =
   | { v: number; type: "balance.update"; id: string; ts: number; cursor: number; data: BalanceSnapshot }
   | { v: number; type: "order.update"; id: string; ts: number; cursor: number; data: OrderAggregate }
   | { v: number; type: "funding.update"; id: string; ts: number; cursor: number; data: FundingSnapshot }
+  | { v: number; type: "funding_total.update"; id: string; ts: number; cursor: number; data: FundingTotal }
   | { v: number; type: "vps_latency.update"; id: string; ts: number; cursor: number; data: VpsLatencySnapshot }
   | { v: number; type: "error"; id: string; ts: number; cursor: number; data: Record<string, unknown> };

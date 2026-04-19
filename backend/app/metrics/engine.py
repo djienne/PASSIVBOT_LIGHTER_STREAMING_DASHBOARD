@@ -128,10 +128,21 @@ async def compute_snapshot() -> MetricsSnapshot:
 
 
 async def metrics_loop() -> None:
-    """5-minute sampler - recompute & publish on a cadence."""
+    """5-minute sampler - recompute & publish on a cadence.
+
+    Skips persisting the snapshot while the fill DB is still empty —
+    otherwise the cold-start sample (realized=$0, equity=$baseline) sticks
+    around in the equity curve and becomes a phantom "peak" that makes
+    subsequent drawdown look catastrophic relative to nothing.
+    """
     log.info("metrics_loop: starting")
     while True:
         try:
+            fills = await repos.all_fills()
+            if not fills:
+                log.info("metrics_loop: no fills yet, waiting for collector")
+                await asyncio.sleep(15)
+                continue
             snap = await compute_snapshot()
             await repos.save_metrics(snap)
             await repos.commit()

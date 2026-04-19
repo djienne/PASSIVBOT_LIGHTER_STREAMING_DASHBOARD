@@ -18,6 +18,7 @@ EnvelopeType = Literal[
     "position.update",
     "balance.update",
     "funding.update",
+    "funding_total.update",
     "metrics.update",
     "timeline.append",
     "health.update",
