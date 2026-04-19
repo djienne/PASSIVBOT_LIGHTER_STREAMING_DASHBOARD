@@ -121,7 +121,7 @@ export default function TopStrip() {
       <MetricCard
         label={`cagr (${metrics.cagr_label})`}
         value={fmtPct(metrics.cagr)}
-        sub={`exposure ${metrics.exposure_pct.toFixed(1)}%`}
+        sub="annualized"
         tone={polarity(metrics.cagr) === "pos" ? "pos" : polarity(metrics.cagr) === "neg" ? "neg" : "neutral"}
       />
     </motion.div>

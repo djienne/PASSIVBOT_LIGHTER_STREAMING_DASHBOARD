@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart, ColorType, CrosshairMode,
   IChartApi, ISeriesApi, LineStyle, SeriesMarker, Time,
@@ -6,16 +6,19 @@ import {
 import { useDash } from "../lib/store";
 import type { Candle, TimelineEvent } from "../lib/types";
 
-const BG       = "#05070d";
-const GRID     = "#111827";
-const UP       = "#34d399";
-const DOWN     = "#f87171";
-const WICK     = "#64748b";
+const BG = "#05070d";
+const GRID = "#111827";
+const UP = "#34d399";
+const DOWN = "#f87171";
+const WICK = "#64748b";
 const AVG_LINE = "#a78bfa";
 const MARK_LIN = "#60a5fa";
+const ZOOM_TOGGLE_MS = 30_000;
+
+type VisibleRange = { from: Time; to: Time };
 
 function toCandleData(c: Candle) {
-  return { time: (Math.floor(c.t / 1000) as Time), open: c.o, high: c.h, low: c.l, close: c.c };
+  return { time: Math.floor(c.t / 1000) as Time, open: c.o, high: c.h, low: c.l, close: c.c };
 }
 
 function fillToMarker(ev: TimelineEvent): SeriesMarker<Time> | null {
@@ -36,7 +39,55 @@ function fillToMarker(ev: TimelineEvent): SeriesMarker<Time> | null {
     position: "aboveBar",
     color,
     shape: "arrowDown",
-    text: ev.pnl != null ? (ev.pnl >= 0 ? `+$${ev.pnl.toFixed(2)}` : `−$${Math.abs(ev.pnl).toFixed(2)}`) : "",
+    text: ev.pnl != null ? (ev.pnl >= 0 ? `+$${ev.pnl.toFixed(2)}` : `-$${Math.abs(ev.pnl).toFixed(2)}`) : "",
+  };
+}
+
+function computeTradeFocusedRanges(
+  candles: Candle[],
+  markers: SeriesMarker<Time>[],
+): { defaultRange: VisibleRange; zoomedRange: VisibleRange } | null {
+  if (candles.length === 0) return null;
+
+  const MIN_SPAN_SECONDS = 90 * 60;
+  const MAX_SPAN_SECONDS = 12 * 60 * 60;
+  const PAD_FRACTION = 0.15;
+  const RECENT_CLUSTER_N = 120;
+
+  const firstCandle = Math.floor(candles[0].t / 1000);
+  const lastCandle = Math.floor(candles[candles.length - 1].t / 1000);
+
+  const insideCandles = markers
+    .map(m => m.time as number)
+    .filter(t => t >= firstCandle && t <= lastCandle)
+    .sort((a, b) => a - b);
+  const recent = insideCandles.slice(-RECENT_CLUSTER_N);
+
+  let start: number;
+  let end: number;
+  if (recent.length > 0) {
+    const mFirst = recent[0];
+    const mLast = recent[recent.length - 1];
+    let span = Math.max(mLast - mFirst, MIN_SPAN_SECONDS);
+    span = Math.min(span, MAX_SPAN_SECONDS);
+    const pad = Math.max(span * PAD_FRACTION, 5 * 60);
+    end = Math.min(mLast + pad, lastCandle);
+    start = Math.max(end - span - pad, firstCandle);
+  } else {
+    end = lastCandle;
+    start = Math.max(lastCandle - 3 * 60 * 60, firstCandle);
+  }
+
+  const defaultSpan = Math.max(end - start, 30 * 60);
+  const zoomedSpan = Math.max(
+    Math.min(Math.floor(defaultSpan * 0.45), 90 * 60),
+    45 * 60,
+  );
+  const zoomedStart = Math.max(end - zoomedSpan, firstCandle);
+
+  return {
+    defaultRange: { from: start as Time, to: end as Time },
+    zoomedRange: { from: zoomedStart as Time, to: end as Time },
   };
 }
 
@@ -46,12 +97,12 @@ export default function ChartPanel() {
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const avgEntryLineRef = useRef<ReturnType<ISeriesApi<"Candlestick">["createPriceLine"]> | null>(null);
   const markLineRef = useRef<ReturnType<ISeriesApi<"Candlestick">["createPriceLine"]> | null>(null);
+  const [zoomMode, setZoomMode] = useState<"default" | "zoomed">("default");
 
   const candles = useDash(s => s.candles);
   const timeline = useDash(s => s.timeline);
   const position = useDash(s => s.position);
-  // Keep the latest position values in a ref so the autoscaleInfoProvider
-  // (which closes over its initial reference) always reads the live value.
+
   const positionRef = useRef(position);
   positionRef.current = position;
 
@@ -61,10 +112,11 @@ export default function ChartPanel() {
       const m = fillToMarker(ev);
       if (m) arr.push(m);
     }
-    // Markers must be in ascending time order.
     arr.sort((a, b) => (a.time as number) - (b.time as number));
     return arr;
   }, [timeline]);
+
+  const ranges = useMemo(() => computeTradeFocusedRanges(candles, markers), [candles, markers]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -77,11 +129,13 @@ export default function ChartPanel() {
       autoSize: true,
     });
     const series = chart.addCandlestickSeries({
-      upColor: UP, downColor: DOWN, wickUpColor: WICK, wickDownColor: WICK,
-      borderVisible: false, priceLineVisible: false,
+      upColor: UP,
+      downColor: DOWN,
+      wickUpColor: WICK,
+      wickDownColor: WICK,
+      borderVisible: false,
+      priceLineVisible: false,
     });
-    // Extend the price axis so the avg-entry + mark price lines always
-    // land inside the viewport — otherwise tight zooms can push them off.
     series.applyOptions({
       autoscaleInfoProvider: (original: () => { priceRange: { minValue: number; maxValue: number }; margins?: unknown } | null) => {
         const base = original();
@@ -112,9 +166,6 @@ export default function ChartPanel() {
     };
   }, []);
 
-  // Keep candle data fresh. Don't blow away the visible range on every tick —
-  // only fit-content on the initial data load so live candle updates don't
-  // snap the chart back to "show everything" every second.
   const didInitialFitRef = useRef(false);
   useEffect(() => {
     const s = candleSeriesRef.current;
@@ -126,63 +177,25 @@ export default function ChartPanel() {
     }
   }, [candles]);
 
-  // Markers.
   useEffect(() => {
     candleSeriesRef.current?.setMarkers(markers);
   }, [markers]);
 
-  // Auto-zoom: focus the visible range on the densest cluster of recent
-  // trading activity rather than flatlining across whatever window the
-  // candle bootstrap happens to cover.
-  //
-  // Strategy:
-  //   1) Consider only the N most recent markers that actually fall inside
-  //      the candle window. Using the full timeline would pull min() way
-  //      back in history (timeline holds 200 events spanning 30 days; the
-  //      chart only has ~48 h of candles, so all those old markers get
-  //      clamped to firstCandle and the "zoom" becomes a no-op).
-  //   2) Span = max(lastMarker - firstMarker, MIN_SPAN). Pad by 12 %.
-  //   3) Hard-cap the window at MAX_SPAN so a cluster of early entries +
-  //      one lonely recent close can't drag the chart all the way out.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setZoomMode(prev => (prev === "default" ? "zoomed" : "default"));
+    }, ZOOM_TOGGLE_MS);
+    return () => window.clearInterval(id);
+  }, []);
+
   useEffect(() => {
     const chart = chartRef.current;
-    if (!chart || candles.length === 0) return;
+    if (!chart || !ranges) return;
+    chart.timeScale().setVisibleRange(
+      zoomMode === "zoomed" ? ranges.zoomedRange : ranges.defaultRange,
+    );
+  }, [ranges, zoomMode]);
 
-    const MIN_SPAN_SECONDS = 90 * 60;             // floor:   1.5 h (keeps context)
-    const MAX_SPAN_SECONDS = 12 * 60 * 60;        // ceiling: 12 h
-    const PAD_FRACTION     = 0.15;
-    const RECENT_CLUSTER_N = 120;                 // last ~120 markers drive the zoom
-
-    const firstCandle = Math.floor(candles[0].t / 1000);
-    const lastCandle  = Math.floor(candles[candles.length - 1].t / 1000);
-
-    const insideCandles = markers
-      .map(m => m.time as number)
-      .filter(t => t >= firstCandle && t <= lastCandle)
-      .sort((a, b) => a - b);
-    const recent = insideCandles.slice(-RECENT_CLUSTER_N);
-
-    let start: number;
-    let end: number;
-    if (recent.length > 0) {
-      const mFirst = recent[0];
-      const mLast  = recent[recent.length - 1];
-      let span = Math.max(mLast - mFirst, MIN_SPAN_SECONDS);
-      span = Math.min(span, MAX_SPAN_SECONDS);
-      const pad = Math.max(span * PAD_FRACTION, 5 * 60);
-      // Anchor on the most recent marker (we want "now" visible), then
-      // extend back to cover the cluster.
-      end   = Math.min(mLast + pad, lastCandle);
-      start = Math.max(end - span - pad, firstCandle);
-    } else {
-      // No markers in the candle window — show the last 3 h by default.
-      end   = lastCandle;
-      start = Math.max(lastCandle - 3 * 60 * 60, firstCandle);
-    }
-    chart.timeScale().setVisibleRange({ from: start as Time, to: end as Time });
-  }, [markers, candles]);
-
-  // Avg-entry + mark price horizontal lines.
   useEffect(() => {
     const s = candleSeriesRef.current;
     if (!s) return;
@@ -222,12 +235,13 @@ export default function ChartPanel() {
     <div className="pane relative overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border/70 bg-panel/80 backdrop-blur flex-none">
         <div className="flex items-center gap-3">
-          <span className="pane-heading">HYPE · 1m · zoomed to trades</span>
+          <span className="pane-heading">HYPE - 1m - auto zoom cycle</span>
           <span className="text-subtle text-xs font-mono">
-            {candles.length} candles · {markers.length} markers
+            {candles.length} candles - {markers.length} markers
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs font-mono">
+          <span className="text-subtle">{zoomMode === "zoomed" ? "detail view" : "context view"}</span>
           <LegendDot color={UP} label="entry" />
           <LegendDot color={DOWN} label="close" />
           <LegendDot color={AVG_LINE} label="avg entry" dashed />

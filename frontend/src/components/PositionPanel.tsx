@@ -15,7 +15,7 @@ export default function PositionPanel() {
   const tone = polarity(unrealized);
 
   return (
-    <div className="pane p-4 flex flex-col gap-3 min-h-[220px]">
+    <div className="pane p-4 flex flex-col gap-3 min-h-[236px]">
       <div className="flex items-center justify-between">
         <span className="pane-heading">position</span>
         {hasPos ? (
@@ -51,7 +51,7 @@ export default function PositionPanel() {
 
       {metrics && (
         <div className="pt-2 border-t border-border flex items-center justify-between text-xs font-mono text-subtle">
-          <span>exposure</span>
+          <span>current exposure</span>
           <span className="text-text">{metrics.exposure_pct.toFixed(1)}%</span>
         </div>
       )}

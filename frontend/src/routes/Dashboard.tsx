@@ -16,7 +16,7 @@ import { useDash } from "../lib/store";
 export default function Dashboard() {
   const applyBootstrap = useDash(s => s.applyBootstrap);
   const applyEnvelope = useDash(s => s.applyEnvelope);
-  const setWSStatus   = useDash(s => s.setWSStatus);
+  const setWSStatus = useDash(s => s.setWSStatus);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,22 +50,30 @@ export default function Dashboard() {
     <div className="min-h-full p-4 md:p-6 flex flex-col gap-4">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <img
-            src="/pbot_logo_full.svg"
-            alt="Passivbot"
-            className="h-9 w-auto select-none"
-            draggable={false}
-          />
+          <div className="flex flex-col gap-1.5">
+            <img
+              src="/pbot_logo_full.svg"
+              alt="Passivbot"
+              className="h-9 w-auto select-none"
+              draggable={false}
+            />
+            <img
+              src="/light_logo_full.svg"
+              alt="Lighter"
+              className="h-6 w-auto select-none opacity-90"
+              draggable={false}
+            />
+          </div>
           <div className="w-px h-8 bg-border" />
           <div className="flex flex-col leading-tight">
-            <span className="text-xs uppercase tracking-[0.2em] text-subtle">on Lighter · HYPE</span>
+            <span className="text-xs uppercase tracking-[0.2em] text-subtle">on Lighter - HYPE</span>
             <span className="text-xl font-display font-semibold">live dashboard</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <VpsLatencyChip />
           <Link to="/stream" className="chip-neutral hover:border-accent hover:text-accent transition">
-            stream mode ⟶
+            {"stream mode ->"}
           </Link>
         </div>
       </header>

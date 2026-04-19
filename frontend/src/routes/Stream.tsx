@@ -63,12 +63,20 @@ export default function Stream() {
       >
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-5 flex-none">
-            <img
-              src="/pbot_logo_full.svg"
-              alt="Passivbot"
-              className="h-11 w-auto select-none"
-              draggable={false}
-            />
+            <div className="flex flex-col gap-2">
+              <img
+                src="/pbot_logo_full.svg"
+                alt="Passivbot"
+                className="h-11 w-auto select-none"
+                draggable={false}
+              />
+              <img
+                src="/light_logo_full.svg"
+                alt="Lighter"
+                className="h-7 w-auto select-none opacity-90"
+                draggable={false}
+              />
+            </div>
             <div className="ml-4">
               <VpsLatencyChip />
             </div>
@@ -79,7 +87,7 @@ export default function Stream() {
         </div>
 
         <div className="grid gap-4 min-h-0" style={{ gridTemplateColumns: "minmax(0,1fr) 420px" }}>
-          <div className="grid gap-4 min-h-0" style={{ gridTemplateRows: "1fr 260px" }}>
+          <div className="grid gap-4 min-h-0" style={{ gridTemplateRows: "1fr 276px" }}>
             <div className="grid gap-4 min-h-0" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)" }}>
               <PnlCurvePanel />
               <ChartPanel />
