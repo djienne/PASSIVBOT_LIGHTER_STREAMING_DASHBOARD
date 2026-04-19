@@ -103,6 +103,9 @@ async def compute_snapshot() -> MetricsSnapshot:
     pos_value = pos.size * mark
     exp = exposure_pct(pos_value, equity)
 
+    # Total notional traded across all fills (buys + sells). Sum of |qty| * price.
+    total_volume_usd = sum(abs(f.qty) * f.price for f in fills)
+
     snap = MetricsSnapshot(
         ts=ts_now,
         baseline=baseline,
@@ -121,6 +124,7 @@ async def compute_snapshot() -> MetricsSnapshot:
         exposure_pct=exp,
         days_since_first_trade=period_days,
         days_since_last_trade=last_trade_days,
+        total_volume_usd=total_volume_usd,
         cagr=cagr.cagr,
         cagr_label=cagr.label,
     )

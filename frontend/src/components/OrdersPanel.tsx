@@ -5,9 +5,11 @@ export default function OrdersPanel() {
   const agg = useDash(s => s.orderAggregate);
   const funding = useDash(s => s.funding);
   const fundingTotal = useDash(s => s.fundingTotal);
+  const metrics = useDash(s => s.metrics);
   const health = useDash(s => s.health);
 
   const openApprox = agg ? Math.max(0, agg.orders_placed - agg.orders_cancelled - agg.fills_count) : 0;
+  const totalVolume = metrics?.total_volume_usd ?? null;
 
   return (
     <div className="pane p-4 min-h-[236px] flex flex-col gap-4">
@@ -31,6 +33,7 @@ export default function OrdersPanel() {
             Current funding fees (APR): <span className={fundingToneClass(funding?.annualized_apr_pct)}>{fmtPct(funding?.annualized_apr_pct)}</span>
           </div>
           <TotalFundingLine total={fundingTotal} />
+          <TotalVolumeLine volumeUsd={totalVolume} />
         </>
       ) : (
         <div className="flex-1 grid place-items-center text-subtle text-sm">
@@ -43,9 +46,26 @@ export default function OrdersPanel() {
               Current funding fees (APR): <span className={fundingToneClass(funding?.annualized_apr_pct)}>{fmtPct(funding?.annualized_apr_pct)}</span>
             </span>
             <TotalFundingLine total={fundingTotal} />
+            <TotalVolumeLine volumeUsd={totalVolume} />
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function TotalVolumeLine({ volumeUsd }: { volumeUsd: number | null }) {
+  if (volumeUsd == null) return null;
+  const label =
+    volumeUsd >= 1_000_000 ? `${(volumeUsd / 1_000_000).toFixed(2)}M` :
+    volumeUsd >= 1_000     ? `${(volumeUsd / 1_000).toFixed(2)}K`     :
+    volumeUsd.toFixed(2);
+  return (
+    <div
+      className="text-sm font-mono text-subtle"
+      title="Sum of |qty| x price across every fill since the bot started (buys + sells)."
+    >
+      Total trading volume: <span className="text-text">${label}</span>
     </div>
   );
 }

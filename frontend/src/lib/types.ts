@@ -52,6 +52,7 @@ export interface MetricsSnapshot {
   exposure_pct: number;
   days_since_first_trade: number;
   days_since_last_trade: number;
+  total_volume_usd: number;
   cagr: number;
   cagr_label: "projected" | "blended";
 }

@@ -80,6 +80,7 @@ class MetricsSnapshot(BaseModel):
     exposure_pct: float
     days_since_first_trade: float
     days_since_last_trade: float
+    total_volume_usd: float = 0.0
     cagr: float
     cagr_label: Literal["projected", "blended"] = "projected"
 
