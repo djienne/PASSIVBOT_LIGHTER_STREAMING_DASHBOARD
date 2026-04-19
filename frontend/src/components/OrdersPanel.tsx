@@ -27,7 +27,6 @@ export default function OrdersPanel() {
             <Stat label="DCAs"   value={dcas}   hint="follow-up buys while the bot was already long" />
             <Stat label="closes" value={closes} hint="sell fills: partial or full closes" highlight />
           </div>
-          <div className="text-sm font-mono text-subtle">fills since restart: {agg.fills_count}</div>
           <div className="text-xs uppercase tracking-[0.18em] text-bull font-semibold">
             Total trading fees paid: ZERO
           </div>
