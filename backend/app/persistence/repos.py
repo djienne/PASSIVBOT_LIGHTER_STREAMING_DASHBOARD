@@ -209,6 +209,20 @@ async def latest_metrics() -> MetricsSnapshot | None:
     return MetricsSnapshot.model_validate_json(row[0]) if row else None
 
 
+async def historical_equity_curve() -> list[tuple[int, float]]:
+    """Sampled equity history from previously saved metrics snapshots."""
+    async with db.conn.execute(
+        "SELECT ts, json FROM metrics_snapshots ORDER BY ts ASC"
+    ) as cur:
+        rows = await cur.fetchall()
+
+    out: list[tuple[int, float]] = []
+    for row in rows:
+        snap = MetricsSnapshot.model_validate_json(row[1])
+        out.append((int(row[0]), snap.baseline + snap.total_pnl))
+    return out
+
+
 async def save_health(h: HealthSnapshot) -> None:
     await db.conn.execute(
         "INSERT OR REPLACE INTO health_snapshots (ts, json) VALUES (?, ?)",

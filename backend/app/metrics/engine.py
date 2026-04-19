@@ -49,19 +49,32 @@ async def compute_snapshot() -> MetricsSnapshot:
     total_pnl = realized + unrealized
     equity = baseline + total_pnl
     return_pct = (total_pnl / baseline) * 100 if baseline > 0 else 0.0
+    ts_now = now_ms()
 
-    # Equity curve for drawdown / Sharpe — sample cumulative realized PnL over time
-    # plus current unrealized.
-    curve: list[tuple[int, float]] = []
+    # Fill-derived equity path for Sharpe and cold-start fallback drawdown.
+    fill_curve: list[tuple[int, float]] = []
     cum = 0.0
     for f in fills:
         cum += f.pnl
-        curve.append((f.ts, baseline + cum))
-    if curve:
-        curve.append((now_ms(), baseline + cum + unrealized))
+        fill_curve.append((f.ts, baseline + cum))
+    if fill_curve:
+        fill_curve.append((ts_now, baseline + cum + unrealized))
 
-    dd = drawdown(curve)
-    sharpe = sharpe_from_equity(curve, interval_seconds=300) if curve else 0.0
+    # Max drawdown should only worsen over time. Once we have persisted equity
+    # samples in `metrics_snapshots`, compute drawdown from that sampled history
+    # instead of only the current live point, which can recover and make the
+    # displayed drawdown appear to shrink.
+    historical_curve = await repos.historical_equity_curve()
+    if historical_curve:
+        dd_curve = [pt for pt in fill_curve if pt[0] < historical_curve[0][0]]
+        dd_curve.extend(historical_curve)
+        if not dd_curve or ts_now > dd_curve[-1][0] or abs(dd_curve[-1][1] - equity) > 1e-9:
+            dd_curve.append((ts_now, equity))
+    else:
+        dd_curve = fill_curve
+
+    dd = drawdown(dd_curve)
+    sharpe = sharpe_from_equity(fill_curve, interval_seconds=300) if fill_curve else 0.0
 
     closes = [f for f in fills if f.pnl != 0]
     wins = [f.pnl for f in closes if f.pnl > 0]
@@ -72,7 +85,6 @@ async def compute_snapshot() -> MetricsSnapshot:
     largest_win = max(wins) if wins else 0.0
     largest_loss = min(losses) if losses else 0.0
 
-    ts_now = now_ms()
     if fills:
         period_ms = ts_now - min(f.ts for f in fills)
         period_days = period_ms / 86_400_000
@@ -115,7 +127,7 @@ async def compute_snapshot() -> MetricsSnapshot:
 
 
 async def metrics_loop() -> None:
-    """5-minute sampler — recompute & publish on a cadence."""
+    """5-minute sampler - recompute & publish on a cadence."""
     log.info("metrics_loop: starting")
     while True:
         try:

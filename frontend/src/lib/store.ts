@@ -35,6 +35,57 @@ export interface DashState {
 
 const MAX_TIMELINE = 200;
 
+function nextPositionFromFill(position: PositionView, fill: FillEvent): PositionView {
+  let size = position.size;
+  let avgEntry = position.avg_entry;
+
+  if (fill.side === "buy") {
+    const newSize = size + fill.qty;
+    avgEntry = newSize > 0
+      ? ((size * avgEntry) + (fill.qty * fill.price)) / newSize
+      : fill.price;
+    size = newSize;
+  } else {
+    size = Math.max(0, size - Math.min(fill.qty, size));
+    if (size <= 1e-9) {
+      size = 0;
+      avgEntry = 0;
+    }
+  }
+
+  return {
+    ...position,
+    side: size > 0 ? "long" : "flat",
+    size: Number(size.toFixed(8)),
+    avg_entry: avgEntry,
+  };
+}
+
+function patchMetricsFromFill(
+  metrics: MetricsSnapshot | null,
+  nextPosition: PositionView,
+  baseline: number,
+  fill: FillEvent,
+): MetricsSnapshot | null {
+  if (!metrics) return null;
+
+  const realized = metrics.realized_pnl + fill.pnl;
+  const unrealized = nextPosition.size > 0
+    ? (nextPosition.mark - nextPosition.avg_entry) * nextPosition.size
+    : 0;
+  const total = realized + unrealized;
+
+  return {
+    ...metrics,
+    realized_pnl: realized,
+    unrealized_pnl: unrealized,
+    total_pnl: total,
+    return_pct: baseline > 0 ? (total / baseline) * 100 : 0,
+    days_since_last_trade: Math.max(0, (Date.now() - fill.ts) / 86_400_000),
+    ts: Math.max(metrics.ts, fill.ts),
+  };
+}
+
 export const useDash = create<DashState>((set) => ({
   schemaVersion: 1,
   cursor: 0,
@@ -106,7 +157,11 @@ export const useDash = create<DashState>((set) => ({
       }
       case "fill": {
         const f = e.data as FillEvent;
-        return { lastEventId: f.event_id };
+        const nextPosition = nextPositionFromFill(state.position, f);
+        const nextMetrics = patchMetricsFromFill(state.metrics, nextPosition, state.baseline, f);
+        return nextMetrics
+          ? { lastEventId: f.event_id, position: nextPosition, metrics: nextMetrics }
+          : { lastEventId: f.event_id, position: nextPosition };
       }
       case "timeline.append": {
         const ev = e.data as TimelineEvent;

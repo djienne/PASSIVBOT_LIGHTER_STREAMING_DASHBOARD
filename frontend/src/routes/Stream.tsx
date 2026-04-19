@@ -15,8 +15,8 @@ import { useDash } from "../lib/store";
 /** Locked 1920x1080 broadcast layout for OBS capture. No cursor, no scroll, no chrome. */
 export default function Stream() {
   const applyBootstrap = useDash(s => s.applyBootstrap);
-  const applyEnvelope  = useDash(s => s.applyEnvelope);
-  const setWSStatus    = useDash(s => s.setWSStatus);
+  const applyEnvelope = useDash(s => s.applyEnvelope);
+  const setWSStatus = useDash(s => s.setWSStatus);
 
   useEffect(() => {
     document.body.classList.add("stream-root");
@@ -36,6 +36,7 @@ export default function Stream() {
       }
     };
     boot();
+
     const ws = makeWS();
     const offMsg = ws.onMessage(e => applyEnvelope(e));
     const offStatus = ws.onStatus(setWSStatus);
@@ -56,25 +57,25 @@ export default function Stream() {
       className="stream-root relative mx-auto overflow-hidden"
       style={{ width: 1920, height: 1080 }}
     >
-      <div className="absolute inset-0 p-6 grid gap-4" style={{
-        gridTemplateRows: "auto 1fr auto",
-      }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-5">
+      <div
+        className="absolute inset-0 p-6 grid gap-4"
+        style={{ gridTemplateRows: "auto 1fr auto" }}
+      >
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-5 flex-none">
             <img
               src="/pbot_logo_full.svg"
               alt="Passivbot"
               className="h-11 w-auto select-none"
               draggable={false}
             />
-            <div className="w-px h-10 bg-border" />
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.3em] text-subtle">on Lighter · HYPE</div>
-              <div className="text-3xl font-display font-semibold">live dashboard</div>
+            <div className="ml-4">
+              <VpsLatencyChip />
             </div>
-            <div className="ml-4"><VpsLatencyChip /></div>
           </div>
-          <TopStrip />
+          <div className="flex-1 min-w-0">
+            <TopStrip />
+          </div>
         </div>
 
         <div className="grid gap-4 min-h-0" style={{ gridTemplateColumns: "minmax(0,1fr) 420px" }}>

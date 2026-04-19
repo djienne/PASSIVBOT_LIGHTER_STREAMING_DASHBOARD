@@ -44,6 +44,45 @@ def test_position_is_valid_long_only():
         assert pos.avg_entry > 0
 
 
+def test_position_keeps_weighted_avg_after_partial_close():
+    fills = [
+        parse_fill_record({
+            "id": "1",
+            "symbol": "HYPE/USDC:USDC",
+            "timestamp": 1_700_000_000_000,
+            "side": "buy",
+            "qty": 1.0,
+            "price": 100.0,
+            "pnl": 0.0,
+            "position_side": "long",
+        }),
+        parse_fill_record({
+            "id": "2",
+            "symbol": "HYPE/USDC:USDC",
+            "timestamp": 1_700_000_000_100,
+            "side": "buy",
+            "qty": 1.0,
+            "price": 200.0,
+            "pnl": 0.0,
+            "position_side": "long",
+        }),
+        parse_fill_record({
+            "id": "3",
+            "symbol": "HYPE/USDC:USDC",
+            "timestamp": 1_700_000_000_200,
+            "side": "sell",
+            "qty": 0.5,
+            "price": 250.0,
+            "pnl": 50.0,
+            "position_side": "long",
+        }),
+    ]
+
+    pos = current_position_from_fills(fills)
+    assert pos.size == 1.5
+    assert pos.avg_entry == 150.0
+
+
 def test_event_ids_are_unique():
     fills = _load_fills()
     ids = [f.event_id for f in fills]
