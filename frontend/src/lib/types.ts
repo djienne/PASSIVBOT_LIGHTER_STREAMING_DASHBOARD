@@ -53,6 +53,9 @@ export interface MetricsSnapshot {
   days_since_first_trade: number;
   days_since_last_trade: number;
   total_volume_usd: number;
+  opens_count: number;
+  dca_count: number;
+  closed_trades_count: number;
   cagr: number;
   cagr_label: "projected" | "blended";
 }

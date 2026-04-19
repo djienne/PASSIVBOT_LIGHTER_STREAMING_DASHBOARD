@@ -105,6 +105,24 @@ async def compute_snapshot() -> MetricsSnapshot:
 
     # Total notional traded across all fills (buys + sells). Sum of |qty| * price.
     total_volume_usd = sum(abs(f.qty) * f.price for f in fills)
+    # Decompose buy fills by whether they START a new position cycle (opens)
+    # or add to an existing long (DCAs). Each sell fill is a close slice.
+    opens_count = 0
+    dca_count = 0
+    closed_trades_count = 0
+    running_size = 0.0
+    for f in sorted(fills, key=lambda x: x.ts):
+        if f.side == "buy":
+            if running_size <= 1e-9:
+                opens_count += 1
+            else:
+                dca_count += 1
+            running_size += f.qty
+        else:  # sell
+            running_size = max(0.0, running_size - min(f.qty, running_size))
+            if running_size <= 1e-9:
+                running_size = 0.0
+            closed_trades_count += 1
 
     snap = MetricsSnapshot(
         ts=ts_now,
@@ -125,6 +143,9 @@ async def compute_snapshot() -> MetricsSnapshot:
         days_since_first_trade=period_days,
         days_since_last_trade=last_trade_days,
         total_volume_usd=total_volume_usd,
+        opens_count=opens_count,
+        dca_count=dca_count,
+        closed_trades_count=closed_trades_count,
         cagr=cagr.cagr,
         cagr_label=cagr.label,
     )

@@ -8,8 +8,10 @@ export default function OrdersPanel() {
   const metrics = useDash(s => s.metrics);
   const health = useDash(s => s.health);
 
-  const openApprox = agg ? Math.max(0, agg.orders_placed - agg.orders_cancelled - agg.fills_count) : 0;
   const totalVolume = metrics?.total_volume_usd ?? null;
+  const opens = metrics?.opens_count ?? 0;
+  const dcas = metrics?.dca_count ?? 0;
+  const closes = metrics?.closed_trades_count ?? 0;
 
   return (
     <div className="pane p-4 min-h-[236px] flex flex-col gap-4">
@@ -20,10 +22,10 @@ export default function OrdersPanel() {
 
       {agg ? (
         <>
-          <div className="grid grid-cols-3 gap-4">
-            <Stat label="placed"    value={agg.orders_placed} />
-            <Stat label="cancelled" value={agg.orders_cancelled} />
-            <Stat label="open ~"    value={openApprox} highlight />
+          <div className="grid grid-cols-3 gap-3">
+            <Stat label="opens"  value={opens}  hint="distinct position cycles started (a buy while flat)" highlight />
+            <Stat label="DCAs"   value={dcas}   hint="follow-up buys while the bot was already long" />
+            <Stat label="closes" value={closes} hint="sell fills: partial or full closes" highlight />
           </div>
           <div className="text-sm font-mono text-subtle">fills since restart: {agg.fills_count}</div>
           <div className="text-xs uppercase tracking-[0.18em] text-bull font-semibold">
@@ -106,9 +108,9 @@ function fundingToneClass(apr: number | null | undefined): string {
   return "text-text";
 }
 
-function Stat({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+function Stat({ label, value, highlight, hint }: { label: string; value: number; highlight?: boolean; hint?: string }) {
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col" title={hint}>
       <div className="text-[11px] uppercase tracking-widest text-subtle font-medium">{label}</div>
       <div className={`metric-value text-2xl ${highlight ? "text-accent" : "text-text"}`}>{value}</div>
     </div>

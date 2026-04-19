@@ -81,6 +81,9 @@ class MetricsSnapshot(BaseModel):
     days_since_first_trade: float
     days_since_last_trade: float
     total_volume_usd: float = 0.0
+    opens_count: int = 0
+    dca_count: int = 0
+    closed_trades_count: int = 0
     cagr: float
     cagr_label: Literal["projected", "blended"] = "projected"
 
