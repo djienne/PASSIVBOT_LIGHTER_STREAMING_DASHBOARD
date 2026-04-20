@@ -2,13 +2,21 @@ import { motion } from "framer-motion";
 import type { TimelineEvent } from "../../lib/types";
 import { fmtUSD } from "../../lib/format";
 
+export const GIF_LOOP_MS = 4200;
+export const WIN_BURST_EXIT_MS = 250;
+// Cleanup fires so the exit fade completes exactly at the end of loop 2 — no
+// visible third loop.
+export const WIN_BURST_MS = 2 * GIF_LOOP_MS - WIN_BURST_EXIT_MS;
+
 export default function WinBurst({ ev }: { ev: TimelineEvent }) {
+  const gifSrc = `/dicaprio.gif?t=${encodeURIComponent(ev.event_id)}`;
   return (
     <motion.div
       className="absolute inset-0 flex items-center justify-center"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.25, exit: { duration: WIN_BURST_EXIT_MS / 1000 } }}
     >
       <motion.div
         className="absolute"
@@ -21,11 +29,23 @@ export default function WinBurst({ ev }: { ev: TimelineEvent }) {
           filter: "blur(4px)",
         }}
       />
+      <motion.img
+        src={gifSrc}
+        alt=""
+        className="absolute rounded-lg shadow-[0_0_32px_rgba(52,211,153,0.35)]"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        style={{ width: 320, height: "auto", pointerEvents: "none" }}
+        draggable={false}
+      />
       <motion.div
-        className="text-bull font-display font-bold text-5xl tracking-tight drop-shadow-[0_0_16px_rgba(52,211,153,0.7)]"
-        initial={{ y: 20, opacity: 0, scale: 0.8 }}
-        animate={{ y: -30, opacity: [0, 1, 1, 0], scale: [0.9, 1.05, 1] }}
-        transition={{ duration: 2.2, times: [0, 0.15, 0.75, 1] }}
+        className="absolute text-bull font-display font-bold text-6xl tracking-tight drop-shadow-[0_0_16px_rgba(0,0,0,0.9)]"
+        initial={{ y: 120, opacity: 0, scale: 0.9 }}
+        animate={{ y: 160, opacity: 1, scale: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
       >
         {fmtUSD(ev.pnl ?? 0, 2)}
       </motion.div>

@@ -30,9 +30,12 @@ export interface DashState {
   vpsLatency: VpsLatencySnapshot | null;
   wsStatus: "idle" | "connecting" | "open" | "closed";
 
+  debugTrigger: TimelineEvent | null;
+
   applyBootstrap: (b: Bootstrap) => void;
   applyEnvelope: (e: Envelope) => void;
   setWSStatus: (s: DashState["wsStatus"]) => void;
+  fireDebugWin: () => void;
 }
 
 const MAX_TIMELINE = 200;
@@ -112,6 +115,8 @@ export const useDash = create<DashState>((set) => ({
   health: null,
   vpsLatency: null,
   wsStatus: "idle",
+
+  debugTrigger: null,
 
   applyBootstrap: (b) => set(() => ({
     schemaVersion: b.schema_version,
@@ -201,4 +206,21 @@ export const useDash = create<DashState>((set) => ({
   }),
 
   setWSStatus: (s) => set({ wsStatus: s }),
+
+  fireDebugWin: () => set(() => {
+    const now = Date.now();
+    const ev: TimelineEvent = {
+      event_id: `debug-${now}`,
+      ts: now,
+      category: "trade",
+      label: "debug win",
+      side: "sell",
+      price: null,
+      qty: null,
+      pnl: 42,
+      win_loss: "win",
+      payload: { debug: true },
+    };
+    return { debugTrigger: ev };
+  }),
 }));

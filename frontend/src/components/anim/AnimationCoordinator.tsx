@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { useDash } from "../../lib/store";
 import type { TimelineEvent } from "../../lib/types";
 import EntryPulse from "./EntryPulse";
-import WinBurst from "./WinBurst";
+import WinBurst, { WIN_BURST_MS } from "./WinBurst";
 import LossFade from "./LossFade";
 import OrderFlash from "./OrderFlash";
 
 const COOLDOWN_MS = 500;
+const DEFAULT_CLEANUP_MS = 2600;
 
 type Trigger =
   | { kind: "entry"; id: string; ev: TimelineEvent }
@@ -24,41 +25,57 @@ function classify(ev: TimelineEvent): Trigger | null {
   return null;
 }
 
-/** Drops replay-storm duplicates and caps each kind to one burst per COOLDOWN. */
+function cooldownFor(kind: Trigger["kind"]): number {
+  return kind === "win" ? WIN_BURST_MS : COOLDOWN_MS;
+}
+
+function cleanupFor(kind: Trigger["kind"]): number {
+  return kind === "win" ? WIN_BURST_MS : DEFAULT_CLEANUP_MS;
+}
+
+/** Drops replay-storm duplicates and caps each kind to one burst per cooldown. */
 export default function AnimationCoordinator() {
   const timeline = useDash(s => s.timeline);
+  const debugTrigger = useDash(s => s.debugTrigger);
   const [active, setActive] = useState<Trigger[]>([]);
   const seenRef = useRef<Set<string>>(new Set());
   const lastFiredRef = useRef<Record<string, number>>({});
   const bootstrappedRef = useRef(false);
 
-  // On first render, pre-seed the seen set so we don't animate the bootstrap batch.
   useEffect(() => {
     if (bootstrappedRef.current) return;
     bootstrappedRef.current = true;
     for (const ev of timeline) seenRef.current.add(ev.event_id);
   }, [timeline]);
 
+  const fireTrigger = (trig: Trigger) => {
+    const now = Date.now();
+    if ((lastFiredRef.current[trig.kind] ?? 0) + cooldownFor(trig.kind) > now) return;
+    lastFiredRef.current[trig.kind] = now;
+    setActive(prev => [...prev, trig].slice(-8));
+    setTimeout(() => {
+      setActive(prev => prev.filter(x => x !== trig));
+    }, cleanupFor(trig.kind));
+  };
+
   useEffect(() => {
     if (!bootstrappedRef.current) return;
-    const newOnes: Trigger[] = [];
     for (const ev of timeline) {
       if (seenRef.current.has(ev.event_id)) continue;
       seenRef.current.add(ev.event_id);
       const trig = classify(ev);
       if (!trig) continue;
-      const now = Date.now();
-      if ((lastFiredRef.current[trig.kind] ?? 0) + COOLDOWN_MS > now) continue;
-      lastFiredRef.current[trig.kind] = now;
-      newOnes.push(trig);
+      fireTrigger(trig);
     }
-    if (newOnes.length === 0) return;
-    setActive(prev => [...prev, ...newOnes].slice(-8));
-    const t = setTimeout(() => {
-      setActive(prev => prev.filter(x => !newOnes.includes(x)));
-    }, 2600);
-    return () => clearTimeout(t);
   }, [timeline]);
+
+  useEffect(() => {
+    if (!debugTrigger) return;
+    if (seenRef.current.has(debugTrigger.event_id)) return;
+    seenRef.current.add(debugTrigger.event_id);
+    const trig = classify(debugTrigger);
+    if (trig) fireTrigger(trig);
+  }, [debugTrigger]);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-40">

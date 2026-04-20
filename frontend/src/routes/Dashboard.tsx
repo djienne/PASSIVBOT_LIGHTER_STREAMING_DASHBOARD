@@ -10,6 +10,7 @@ import HealthFooter from "../components/HealthFooter";
 import VpsLatencyChip from "../components/VpsLatencyChip";
 import CurrentTimeChip from "../components/CurrentTimeChip";
 import AnimationCoordinator from "../components/anim/AnimationCoordinator";
+import DebugGifButton from "../components/DebugGifButton";
 import { fetchBootstrap } from "../lib/api";
 import { makeWS } from "../lib/ws";
 import { useDash } from "../lib/store";
@@ -102,6 +103,7 @@ export default function Dashboard() {
 
       <HealthFooter />
       <AnimationCoordinator />
+      <DebugGifButton />
     </div>
   );
 }
