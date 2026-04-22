@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 0 — download every relevant cache file into data/fixtures/ for replay tests.
+"""Phase 0 - download every relevant cache file into data/fixtures/ for replay tests.
 
 Requires: ssh + scp on PATH, infos/lighter.pem readable.
 Usage:    python scripts/snapshot_cache.py
@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 KEY = Path(os.environ.get("SSH_KEY_PATH", ROOT / "infos" / "lighter.pem"))
-HOST = os.environ.get("VPS_HOST", "54.95.246.213")
+HOST = os.environ.get("VPS_HOST", "your-vps-host")
 USER = os.environ.get("VPS_USER", "ubuntu")
 REMOTE_DIR = os.environ.get("REMOTE_DIR", "/home/ubuntu/passivbot_lighter")
 OUT = ROOT / "data" / "fixtures"
@@ -24,7 +24,9 @@ SSH_OPTS = ["-i", str(KEY), "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=y
 def ssh(cmd: str) -> str:
     res = subprocess.run(
         ["ssh", *SSH_OPTS, f"{USER}@{HOST}", cmd],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if res.returncode != 0:
         sys.exit(f"ssh failed: {res.stderr}")
@@ -35,7 +37,9 @@ def scp(remote: str, local: Path) -> None:
     local.parent.mkdir(parents=True, exist_ok=True)
     res = subprocess.run(
         ["scp", *SSH_OPTS, f"{USER}@{HOST}:{remote}", str(local)],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if res.returncode != 0:
         print(f"  ! scp {remote} failed: {res.stderr.strip()}")

@@ -1,182 +1,123 @@
-# Lighter HYPE — Live Dashboard
+# Lighter HYPE Live Dashboard
 
-Broadcast-ready dashboard for a Passivbot running on Lighter trading `HYPE`.
-Local dev now, portable to a 24/7 streaming PC for OBS capture later.
+Broadcast-ready dashboard for a Passivbot instance running on Lighter and trading `HYPE`.
+The repo contains a FastAPI backend, a React frontend, and an OBS-friendly `/stream` route locked to `1920x1080`.
 
-## What it shows
+<p align="center">
+  <img src="screen.png" alt="Passivbot Lighter streaming dashboard screenshot" width="1200" />
+</p>
 
-- **Top strip** — Total PnL, Return % (vs 800 USDC baseline), Sharpe, Max Drawdown, Days Since Last Trade, Win Rate, CAGR (projected / blended).
-- **Chart** — last 48h of HYPE 1m candles from Lighter REST + live ticker updates; entry/close markers, dashed avg-entry line, dotted mark line.
-- **Position panel** — size, notional, avg entry, mark, unrealized PnL $/%.
-- **Orders panel** — aggregate counts from the bot's `[health]` log line (placed / cancelled / approx open).
-- **Action feed** — newest-first timeline of fills with per-row win/loss dot and realized PnL.
-- **Health footer** — backend / WS / Lighter status; stale banner if any source falls behind.
-- **Animations** — entry pulse, winning burst, losing fade, order flash, deduped across replay storms.
-- **`/stream` route** — locked 1920×1080 OBS-tuned layout with no cursor or scrollbars.
+## What it does
+
+- Pulls fills, health, and position context from a remote Passivbot host over SSH.
+- Rebuilds metrics locally in SQLite and enriches them with live Lighter market data.
+- Streams state to the frontend over WebSocket for both a regular dashboard and a stream layout.
+
+## Current dashboard features
+
+- Top strip with realized, latent, and total PnL, return vs baseline, Sharpe, max drawdown, trading uptime, win rate, and CAGR.
+- Cumulative PnL panel with absolute dollars, percent-of-baseline overlay, and grouped buy/sell markers.
+- Live `HYPE` 1m chart with auto-zoom cycling, fill markers, avg-entry line, and live-close line.
+- Position panel with size, notional, avg entry, mark, unrealized PnL, and exposure.
+- Orders panel with aggregate opens / DCAs / closes, total trading volume, current funding APR, and total funding since start.
+- Action feed that groups burst fills and highlights wins, losses, buys, sells, and order events.
+- Health footer with backend / browser / Lighter WS status, stale-data banner, current time, and AWS Tokyo -> Lighter RTT.
+- Overlay animations for entry, win, loss, order activity, and a "this is fine" crisis animation when unrealized PnL drops below `-$10`.
 
 ## Stack
 
-- **Backend** — Python 3.10+, FastAPI, asyncssh, aiosqlite, httpx, websockets, Pydantic v2.
-- **Frontend** — React 18 + TypeScript + Vite, TradingView Lightweight Charts, Framer Motion, Zustand, Tailwind.
-- **Persistence** — SQLite (`data/dashboard.db`) for candles, fills, timeline, metrics, health — with cursor-based WS resume.
+- Backend: Python 3.10+, FastAPI, asyncssh, aiosqlite, httpx, websockets, Pydantic v2
+- Frontend: React 18, TypeScript, Vite, Zustand, Framer Motion, TradingView Lightweight Charts, Tailwind
+- Persistence: SQLite at `data/dashboard.db` (gitignored)
 
-Full architecture write-up: [`docs/DISCOVERY.md`](docs/DISCOVERY.md) · [`LIGHTER_DASHBOARD_PLAN.md`](LIGHTER_DASHBOARD_PLAN.md).
+More detail lives in [`docs/DISCOVERY.md`](docs/DISCOVERY.md), [`docs/STREAMING.md`](docs/STREAMING.md), and [`LIGHTER_DASHBOARD_PLAN.md`](LIGHTER_DASHBOARD_PLAN.md).
+
+## Safe setup
+
+1. Copy `.env.example` to `.env`.
+2. Fill in your own `VPS_HOST`, `VPS_USER`, `SSH_KEY_PATH`, and `REMOTE_DIR`.
+3. Keep `.env`, YouTube stream keys, private SSH keys, and SQLite files out of git.
+
+Shared defaults in the tracked files are intentionally placeholders so the repo can be pushed safely.
 
 ## First-time setup
 
 ```bash
-# 1. clone / cd to repo root
-cd /path/to/STREAMING_LIVE_PASSIBOT
-
-# 2. copy the env template and edit to taste
-cp .env.example .env
-
-# 3. backend
+# backend
 cd backend
 python -m venv .venv
 .venv/Scripts/python -m pip install -e ".[dev]"    # Windows
-# or  .venv/bin/python -m pip install -e ".[dev]"  # macOS/Linux
-cd ..
+# .venv/bin/python -m pip install -e ".[dev]"      # macOS / Linux
 
-# 4. frontend
-cd frontend
+# frontend
+cd ../frontend
 npm install
 cd ..
 ```
 
-## Run (local dev)
+## Run locally
+
+Run the services in two terminals:
 
 ```bash
-bash scripts/run_dev.sh
+# terminal 1
+cd backend
+.venv/Scripts/python -m uvicorn app.main:app --host 127.0.0.1 --port 8787
+```
+
+```bash
+# terminal 2
+cd frontend
+npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
 Then open:
-- Dashboard: http://127.0.0.1:5173/
-- Stream mode: http://127.0.0.1:5173/stream
 
-Or run them separately:
+- Dashboard: `http://127.0.0.1:5173/`
+- Stream mode: `http://127.0.0.1:5173/stream`
 
-```bash
-# backend  (port 8787)
-cd backend && .venv/Scripts/python -m uvicorn app.main:app --host 127.0.0.1 --port 8787
+If you prefer the helper script and have a bash-compatible shell available, you can also run `bash scripts/run_dev.sh`.
 
-# frontend (port 5173)
-cd frontend && npm run dev
-```
+## Dev animation demo
 
-## Phase 0 discovery scripts (optional)
-
-All findings are already captured in `docs/DISCOVERY.md` and `data/fixtures/`, but you can re-run:
+With the backend running, you can trigger demo events:
 
 ```bash
-bash scripts/discover_cache.sh       # inventories /home/ubuntu/passivbot_lighter/caches
-python scripts/probe_lighter_ws.py   # records Lighter WS subscribe/response
-python scripts/snapshot_cache.py     # downloads cache JSONs into data/fixtures/
+curl -X POST http://127.0.0.1:8787/api/dev/inject -H "Content-Type: application/json" -d "{\"kind\":\"win\",\"pnl\":1.23}"
+curl -X POST http://127.0.0.1:8787/api/dev/inject -H "Content-Type: application/json" -d "{\"kind\":\"loss\",\"pnl\":0.75}"
+curl -X POST http://127.0.0.1:8787/api/dev/inject -H "Content-Type: application/json" -d "{\"kind\":\"entry\"}"
+curl -X POST http://127.0.0.1:8787/api/dev/inject -H "Content-Type: application/json" -d "{\"kind\":\"order\"}"
 ```
 
-## Tests
+The crisis overlay is not triggered by the dev endpoint; it appears automatically when the live unrealized PnL crosses the configured drawdown threshold.
+
+## Build and checks
 
 ```bash
-cd backend
-.venv/Scripts/python -m pytest tests/ -v
+# frontend
+cd frontend
+npm run build
+
+# backend
+cd ../backend
+.venv/Scripts/python -m pytest tests -v
 ```
 
-Covers: PnL reconstruction parity vs `infos/plot_passivbot.py`, LRU+fingerprint dedupe, CAGR branches (projected / blended), cache-line parser, end-to-end replay idempotency.
+## 24/7 stream notes
 
-## Animation demo (no live trade required)
+- `/stream` is the fixed `1920x1080` layout intended for OBS window capture.
+- `scripts/run_stream.ps1` launches a kiosk-style Chrome window for the stream view.
+- See [`docs/STREAMING.md`](docs/STREAMING.md) for the OBS and YouTube workflow.
 
-With the backend running, POST to the dev side-door:
+## Repo layout
 
-```bash
-curl -X POST http://127.0.0.1:8787/api/dev/inject \
-  -H "Content-Type: application/json" -d '{"kind":"win","pnl":1.23}'
-curl -X POST http://127.0.0.1:8787/api/dev/inject \
-  -H "Content-Type: application/json" -d '{"kind":"loss","pnl":0.75}'
-curl -X POST http://127.0.0.1:8787/api/dev/inject \
-  -H "Content-Type: application/json" -d '{"kind":"entry"}'
-```
-
-Each kind triggers a different animation variant; the AnimationCoordinator dedupes if you spam.
-
-## 24/7 stream mode (Windows)
-
-1. Build the frontend once: `cd frontend && npm run build && npm run preview -- --host 127.0.0.1 --port 5173`
-   (or serve `frontend/dist/` with any static server).
-2. Register the backend as a Windows service via NSSM:
-   ```powershell
-   nssm install LighterDashboard "C:\...\backend\.venv\Scripts\python.exe" `
-     "-m uvicorn app.main:app --host 127.0.0.1 --port 8787"
-   nssm set LighterDashboard AppDirectory "C:\...\STREAMING_LIVE_PASSIBOT\backend"
-   nssm set LighterDashboard Start SERVICE_AUTO_START
-   Start-Service LighterDashboard
-   ```
-3. Launch kiosk Chrome at logon (Task Scheduler → "At logon" → PowerShell `scripts/run_stream.ps1`).
-
-Before moving to the streaming PC, move `infos/lighter.pem` out of the repo to `%USERPROFILE%\.ssh\lighter.pem` and update `.env`'s `SSH_KEY_PATH` accordingly.
-
-## Data flow summary
-
-```
-              Lighter VPS (passivbot)
-              │
-              ├── caches/lighter/lighter_01_pnls.json   (fills — polled 3s)
-              └── logs/passivbot_debug.log [health]     (balance, orders — tailed)
-                           │
-                           ▼ asyncssh (single persistent session)
-        ┌────────────────────────────────────────────┐
-        │  CachePoller  +  HealthLogTail             │
-        │  ↓                                         │
-        │  FillEvent / TimelineEvent / Balance /     │
-        │  OrderAggregate / HealthSnapshot  ──────┐  │
-        │                                         │  │
-        │  MetricsEngine  (5-min sampler)         │  │
-        │       ↑                                 │  │
-        │  LighterWS(ticker/24)  → Candles  ──────┤  │
-        │  LighterREST(/api/v1/candles)           │  │
-        │                                         ▼  │
-        │                    EventBus (asyncio pub/sub)
-        │                                         │  │
-        │  FastAPI /api/bootstrap  · /ws hub ◄────┘  │
-        └────────────────────────────────────────────┘
-                           │
-                           ▼ WebSocket envelopes
-                 React + Zustand store
-                 TopStrip · Chart · Panels · ActionFeed · Animations
-```
-
-## Known / by-design constraints
-
-- **Open orders are not exposed individually.** The bot keeps them in RAM; only aggregate counts from its `[health]` line make it to disk. The Orders panel is therefore an aggregate card, not a live order list. (Fix would require cooperation from the bot.)
-- **Lighter has no public candle WS.** We bootstrap 48 h via REST (paginated 500 at a time) and update the latest candle from the `ticker/24` BBO stream.
-- **Single-symbol.** HYPE only. Multi-symbol was explicitly out of scope.
-- **Long-only.** Matches the current `reconstruct_pnl()` logic. Short positions would need an extension to `metrics/pnl.py`.
-
-## Layout
-
-```
+```text
 STREAMING_LIVE_PASSIBOT/
-├── backend/
-│   ├── app/
-│   │   ├── collector/   — asyncssh poll of caches + log tail
-│   │   ├── market/      — Lighter REST candles + WS ticker
-│   │   ├── metrics/     — PnL reconstruction, drawdown, Sharpe, CAGR
-│   │   ├── persistence/ — aiosqlite + schema + typed repos
-│   │   ├── api/         — routes_http, routes_ws, routes_dev
-│   │   ├── events/bus.py — in-process async pub/sub
-│   │   ├── config.py    — pydantic-settings
-│   │   └── main.py      — FastAPI factory + lifespan
-│   └── tests/           — parity, dedupe, CAGR, parsers, replay
-├── frontend/
-│   └── src/
-│       ├── components/  — TopStrip, ChartPanel, PositionPanel, OrdersPanel, ActionFeed, HealthFooter, anim/*
-│       ├── routes/      — Dashboard, Stream
-│       └── lib/         — api, ws, store (zustand), types, format
-├── scripts/             — discover_cache.sh, probe_lighter_ws.py, snapshot_cache.py, run_dev.sh, run_stream.ps1, inject_event.py
-├── data/
-│   ├── dashboard.db     — SQLite (gitignored)
-│   └── fixtures/        — captured Lighter samples for replay tests
-├── docs/
-│   └── DISCOVERY.md     — Phase 0 results
-├── infos/               — original plot_passivbot.py + SSH key (gitignored)
-└── LIGHTER_DASHBOARD_PLAN.md  — the approved plan
+|- backend/      FastAPI app, collectors, metrics, persistence, tests
+|- frontend/     React app, stream route, panels, animations
+|- data/         SQLite db and captured fixtures
+|- docs/         discovery and streaming notes
+|- scripts/      local run, stream, discovery, and utility scripts
+|- infos/        local helper files and gitignored private SSH material
+|- screen.png    screenshot used in this README
 ```

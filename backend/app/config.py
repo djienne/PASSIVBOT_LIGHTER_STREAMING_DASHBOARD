@@ -18,8 +18,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # Shared repo defaults stay generic; set real connection details in .env.
+    # This keeps the public repo free of private infrastructure details.
     # VPS
-    vps_host: str = "54.95.246.213"
+    vps_host: str = "your-vps-host"
     vps_user: str = "ubuntu"
     ssh_key_path: Path = REPO_ROOT / "infos" / "lighter.pem"
     remote_dir: str = "/home/ubuntu/passivbot_lighter"

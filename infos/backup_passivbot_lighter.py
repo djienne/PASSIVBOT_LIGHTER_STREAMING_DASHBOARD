@@ -20,8 +20,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-# Default connection info (same as plot_wallet.py)
-DEFAULT_HOST = "54.95.246.213"
+# Default connection info. Keep placeholders in shared code and provide real
+# values through CLI args, SSH config, or environment variables.
+DEFAULT_HOST = "your-vps-host"
 DEFAULT_USER = "ubuntu"
 DEFAULT_KEY_FILE = Path(__file__).parent / "lighter.pem"
 DEFAULT_REMOTE_DIR = "/home/ubuntu/passivbot_lighter"

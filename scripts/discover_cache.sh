@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Phase 0 — VPS cache discovery.
+# Phase 0 - VPS cache discovery.
 # Inventories /home/ubuntu/passivbot_lighter/caches/ on the Lighter VPS.
 # Output is captured to docs/DISCOVERY.raw.txt for hand-folding into docs/DISCOVERY.md.
 #
-# Requires: ssh + infos/lighter.pem + network path to 54.95.246.213.
+# Requires: ssh + infos/lighter.pem + network path to your VPS host.
 # Usage:   bash scripts/discover_cache.sh
 
 set -euo pipefail
 
-HOST="${VPS_HOST:-54.95.246.213}"
+HOST="${VPS_HOST:-your-vps-host}"
 USER_NAME="${VPS_USER:-ubuntu}"
 KEY="${SSH_KEY_PATH:-infos/lighter.pem}"
 REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/passivbot_lighter}"

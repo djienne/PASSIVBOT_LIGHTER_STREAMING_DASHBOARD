@@ -37,3 +37,8 @@ frontend/*.tsbuildinfo
 # editor
 .vscode/
 .idea/
+
+# local media / scratch
+musics/
+to_process/
+/this-is-fine-fine.gif

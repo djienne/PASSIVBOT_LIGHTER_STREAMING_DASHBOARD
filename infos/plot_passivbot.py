@@ -2,6 +2,7 @@
 """Download and plot PnL data from remote passivbot instance."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -9,9 +10,9 @@ from pathlib import Path
 # ── Configuration ──────────────────────────────────────────────
 REFERENCE_CAPITAL = 600.0  # Starting capital for % return calculations
 
-REMOTE_HOST = "54.95.246.213"
-REMOTE_USER = "ubuntu"
-KEY_FILE = Path(__file__).parent / "lighter.pem"
+REMOTE_HOST = os.environ.get("VPS_HOST", "your-vps-host")
+REMOTE_USER = os.environ.get("VPS_USER", "ubuntu")
+KEY_FILE = Path(os.environ.get("SSH_KEY_PATH", Path(__file__).parent / "lighter.pem"))
 REMOTE_DIRS = ["/home/ubuntu/passivbot_lighter", "/home/ubuntu/passivbot"]
 LOCAL_JSON = Path(__file__).parent / "passivbot_pnls.json"
 SSH_OPTS = ["-i", str(KEY_FILE), "-o", "StrictHostKeyChecking=no"]
