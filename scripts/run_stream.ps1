@@ -1,16 +1,15 @@
 # 24/7 stream mode launcher for Windows.
 # Assumes:
-#   - backend is installed as an NSSM service ("LighterDashboard") or run directly
-#   - frontend has been `npm run build`-ed and is served by a static server, or `npm run preview`
+#   - dashboard is running through Docker or another production server
 #   - Chrome is installed
 #
 # Behavior:
-#   1. Ensure backend is reachable on 127.0.0.1:8787 (start the NSSM service if stopped).
-#   2. Ensure a served frontend is reachable on 127.0.0.1:5173 (or configured $FRONTEND_URL).
+#   1. Ensure backend is reachable on 127.0.0.1:8787.
+#   2. Ensure the served dashboard is reachable on 127.0.0.1:8787 (or configured $FRONTEND_URL).
 #   3. Launch Chrome in kiosk-mode pointed at /stream.
 
 param(
-  [string]$FrontendUrl = "http://127.0.0.1:5173/stream",
+  [string]$FrontendUrl = "http://127.0.0.1:8787/stream",
   [string]$BackendHealthUrl = "http://127.0.0.1:8787/api/health",
   [string]$ServiceName = "LighterDashboard",
   [string]$ChromeExe = "C:\Program Files\Google\Chrome\Application\chrome.exe"

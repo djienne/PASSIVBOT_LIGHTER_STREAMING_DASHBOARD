@@ -1,0 +1,33 @@
+services:
+  dashboard:
+    build:
+      context: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      BACKEND_HOST: 0.0.0.0
+      BACKEND_PORT: 8787
+      DATABASE_PATH: /data/dashboard.db
+      FRONTEND_DIST: /app/frontend/dist
+      SSH_KEY_PATH: /run/secrets/lighter.pem
+      REQUIRE_SSH_ON_START: ${REQUIRE_SSH_ON_START:-false}
+      ENABLE_DEV_ROUTES: ${ENABLE_DEV_ROUTES:-false}
+    ports:
+      - "8787:8787"
+    network_mode: bridge
+    volumes:
+      - dashboard-data:/data
+      - ${HOST_SSH_DIR:-./infos}:/run/secrets:ro
+      # Optional strict SSH host verification:
+      # put known_hosts in HOST_SSH_DIR and set SSH_KNOWN_HOSTS_PATH=/run/secrets/known_hosts
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/api/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  dashboard-data:

@@ -10,6 +10,11 @@ Both expose the same narrow contract:
     read_file(remote_path) -> bytes
     file_stat(remote_path) -> (mtime_ms, size_bytes)
     tail_bytes(remote_path, offset) -> (bytes, new_offset)
+    health_lines(remote_path) -> bytes
+
+When REMOTE_DOCKER_CONTAINER is set, file-oriented commands are run through
+`docker exec` on the remote VPS so the dashboard can read a bot filesystem
+that exists only inside the remote container.
 """
 
 from __future__ import annotations
@@ -28,6 +33,8 @@ class SSHTransport(Protocol):
     async def read_file(self, remote_path: str) -> bytes: ...
     async def file_stat(self, remote_path: str) -> tuple[int, int]: ...
     async def tail_bytes(self, remote_path: str, offset: int) -> tuple[bytes, int]: ...
+    async def health_lines(self, remote_path: str) -> bytes: ...
+    async def run_command(self, cmd: str) -> bytes: ...
 
 
 class AsyncSSHClient:
@@ -41,13 +48,18 @@ class AsyncSSHClient:
         async with self._lock:
             if self._conn is not None:
                 return
+            known_hosts = (
+                str(settings.ssh_known_hosts_path)
+                if settings.ssh_known_hosts_path is not None
+                else None
+            )
             while True:
                 try:
                     self._conn = await asyncssh.connect(
                         host=settings.vps_host,
                         username=settings.vps_user,
                         client_keys=[str(settings.ssh_key_path)],
-                        known_hosts=None,  # we pin via dedicated key instead
+                        known_hosts=known_hosts,
                         connect_timeout=10,
                     )
                     self._backoff = 1.0
@@ -80,24 +92,41 @@ class AsyncSSHClient:
             await self.close()
             raise
 
+    def _file_cmd(self, cmd: str) -> str:
+        container = settings.remote_docker_container
+        if not container:
+            return cmd
+        return f"docker exec {shell_quote(container)} sh -lc {shell_quote(cmd)}"
+
+    async def run_command(self, cmd: str) -> bytes:
+        return await self._run(cmd)
+
     async def read_file(self, remote_path: str) -> bytes:
-        return await self._run(f"cat {shell_quote(remote_path)}")
+        return await self._run(self._file_cmd(f"cat {shell_quote(remote_path)}"))
 
     async def file_stat(self, remote_path: str) -> tuple[int, int]:
-        out = await self._run(f"stat -c %Y:%s {shell_quote(remote_path)}")
+        out = await self._run(self._file_cmd(f"stat -c %Y:%s {shell_quote(remote_path)}"))
         mtime_s, size = out.decode().strip().split(":")
         return int(mtime_s) * 1000, int(size)
 
     async def tail_bytes(self, remote_path: str, offset: int) -> tuple[bytes, int]:
-        # Use dd with skip_bytes — robust to growing files. If offset exceeds file, returns empty.
-        size_out = await self._run(f"stat -c %s {shell_quote(remote_path)}")
+        # Use a byte-offset tail, capped to the size observed before reading.
+        # If offset exceeds file size, return empty.
+        size_out = await self._run(self._file_cmd(f"stat -c %s {shell_quote(remote_path)}"))
         size = int(size_out.decode().strip())
         if offset >= size:
             return b"", size
-        data = await self._run(
-            f"dd if={shell_quote(remote_path)} bs=1 skip={offset} count={size - offset} 2>/dev/null"
-        )
+        data = await self._run(self._file_cmd(
+            f"tail -c +{offset + 1} {shell_quote(remote_path)} | head -c {size - offset}"
+        ))
         return data, size
+
+    async def health_lines(self, remote_path: str) -> bytes:
+        cmd = (
+            f"grep -h '\\[health\\]' {shell_quote(remote_path)} "
+            f"{shell_quote(remote_path + '.1')} 2>/dev/null | tail -5"
+        )
+        return await self._run(self._file_cmd(cmd))
 
 
 def shell_quote(s: str) -> str:
@@ -142,6 +171,12 @@ class FakeSSHClient:
         if offset >= len(data):
             return b"", len(data)
         return data[offset:], len(data)
+
+    async def health_lines(self, remote_path: str) -> bytes:
+        return b""
+
+    async def run_command(self, cmd: str) -> bytes:  # noqa: ARG002
+        return b""
 
 
 def make_transport() -> SSHTransport:

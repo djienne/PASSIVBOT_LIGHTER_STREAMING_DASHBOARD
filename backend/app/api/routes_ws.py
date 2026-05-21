@@ -31,7 +31,7 @@ FORWARD_TOPICS = {
     "funding.update": "funding.update",
     "funding_total.update": "funding_total.update",
     "vps_latency.update": "vps_latency.update",
-    "ws.connected": "health.update",
+    "market_ws.update": "market_ws.update",
 }
 
 THROTTLE_HZ = 10  # max outgoing messages/sec per client
@@ -106,12 +106,12 @@ def _to_envelope(topic: str, payload) -> dict:
             cursor=0,
             data=payload.model_dump(),
         ).model_dump()
-    if topic == "ws.connected":
+    if topic == "market_ws.update":
         return envelope(
-            type_="health.update",
-            id_=f"ws:{now_ms()}",
+            type_="market_ws.update",
+            id_=f"market-ws:{now_ms()}",
             cursor=0,
-            data={"ws_connected": bool(payload)},
+            data={"connected": bool(payload)},
         ).model_dump()
     return envelope(type_="error", id_=f"unk:{topic}", cursor=0, data={"topic": topic}).model_dump()
 
@@ -140,9 +140,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
             await send_queue.put(env)
 
     async def _writer() -> None:
-        last_sent = 0.0
+        last_flush = 0.0
         pending_coalesce: dict[str, dict] = {}
-        flush_deadline = 0.0
         while True:
             try:
                 item = await asyncio.wait_for(send_queue.get(), timeout=MIN_INTERVAL)
@@ -157,14 +156,13 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     pending_coalesce[f"candle:{item['id']}"] = item
                 else:
                     await _send(ws, item)
-                    last_sent = now
 
             # Flush coalesced bucket if we've drifted past THROTTLE interval.
-            if pending_coalesce and (now - last_sent) >= MIN_INTERVAL:
+            if pending_coalesce and (now - last_flush) >= MIN_INTERVAL:
                 for env in list(pending_coalesce.values()):
                     await _send(ws, env)
                 pending_coalesce.clear()
-                last_sent = now_ms() / 1000
+                last_flush = now_ms() / 1000
 
     # Send hello
     await _send(ws, envelope(type_="hello", id_="hello", cursor=0, data={"v": SCHEMA_VERSION}).model_dump())

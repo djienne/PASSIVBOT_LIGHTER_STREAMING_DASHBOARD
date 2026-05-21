@@ -23,3 +23,19 @@ def test_blended_branch_more_than_1_year():
 def test_zero_period():
     r = compute_cagr(total_return_pct=5, period_days=0, last_year_return_pct=None)
     assert r.cagr == 0.0
+
+
+def test_first_hour_positive_return_is_clamped_not_overflowing():
+    r = compute_cagr(total_return_pct=10, period_days=1 / 24, last_year_return_pct=None)
+    assert r.label == "projected"
+    assert 0 < r.cagr <= 1_000_000
+
+
+def test_first_hour_loss_is_finite():
+    r = compute_cagr(total_return_pct=-10, period_days=1 / 24, last_year_return_pct=None)
+    assert -100 < r.cagr < 0
+
+
+def test_negative_full_loss_caps_at_minus_100():
+    r = compute_cagr(total_return_pct=-100, period_days=1 / 24, last_year_return_pct=None)
+    assert r.cagr == -100.0

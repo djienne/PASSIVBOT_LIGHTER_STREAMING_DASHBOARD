@@ -15,7 +15,7 @@ def test_parse_fill_record_sample():
         "price": 38.9577,
     }
     f = parse_fill_record(raw)
-    assert f.event_id == "lighter:16283723713"
+    assert f.event_id.startswith("lighter:16283723713:")
     assert f.ts == 1774015215376
     assert f.side == "buy"
     assert f.qty == 2.06

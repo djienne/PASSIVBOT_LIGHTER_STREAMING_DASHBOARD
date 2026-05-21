@@ -8,10 +8,11 @@ from ..config import settings
 from ..envelope import SCHEMA_VERSION, now_ms
 from ..market.lighter_ws import ws_client
 from ..metrics.engine import compute_snapshot
-from ..metrics.pnl import current_position_from_fills
+from ..metrics.pnl import current_position_from_fills, reconstruct_pnl_from_fills
 from ..persistence import repos
 
 router = APIRouter()
+DELTA_LIMIT = 500
 
 
 @router.get("/api/bootstrap")
@@ -29,17 +30,22 @@ async def bootstrap(since: int | None = Query(default=None)) -> dict:
     latest_latency = await repos.latest_vps_latency()
     latest_funding = ws_client.latest_funding
     latest_funding_total = ws_client.latest_funding_total
-    cursor = await repos.current_cursor()
+    server_cursor = await repos.current_cursor()
 
     if since is not None:
+        timeline_delta = await repos.timeline_since(since, limit=DELTA_LIMIT)
+        delivered_cursor = timeline_delta[-1][0] if timeline_delta else server_cursor
+        has_more = bool(timeline_delta) and delivered_cursor < server_cursor
         delta_events = [
             {"cursor": c, "event": ev.model_dump()}
-            for c, ev in await repos.timeline_since(since, limit=500)
+            for c, ev in timeline_delta
         ]
         return {
             "schema_version": SCHEMA_VERSION,
             "server_time": now_ms(),
-            "cursor": cursor,
+            "cursor": delivered_cursor,
+            "server_cursor": server_cursor,
+            "has_more": has_more,
             "since": since,
             "timeline": delta_events,
         }
@@ -54,7 +60,7 @@ async def bootstrap(since: int | None = Query(default=None)) -> dict:
     return {
         "schema_version": SCHEMA_VERSION,
         "server_time": now_ms(),
-        "cursor": cursor,
+        "cursor": server_cursor,
         "symbol": settings.symbol,
         "market_id": settings.market_id,
         "baseline": settings.display_baseline,
@@ -67,6 +73,7 @@ async def bootstrap(since: int | None = Query(default=None)) -> dict:
         "metrics": metrics.model_dump(),
         "timeline": timeline,
         "health": latest_health.model_dump() if latest_health else None,
+        "market_ws_connected": ws_client.connected,
         "vps_latency": latest_latency.model_dump() if latest_latency else None,
     }
 
@@ -81,4 +88,33 @@ async def health() -> dict:
         "ws_connected": ws_client.connected,
         "last_price": ws_client.last_price,
         "health": latest_health.model_dump() if latest_health else None,
+    }
+
+
+@router.get("/api/pnl-curve")
+async def pnl_curve() -> dict:
+    """All fill-derived trade points for the cumulative PnL chart."""
+    fills = await repos.all_fills()
+    if fills and all(f.pnl == 0 for f in fills):
+        fills = reconstruct_pnl_from_fills(fills)
+
+    cumulative = 0.0
+    points = []
+    for fill in fills:
+        cumulative += fill.pnl
+        points.append({
+            "event_id": fill.event_id,
+            "ts": fill.ts,
+            "side": fill.side,
+            "qty": fill.qty,
+            "price": fill.price,
+            "pnl": fill.pnl,
+            "value": cumulative,
+        })
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "server_time": now_ms(),
+        "baseline": settings.display_baseline,
+        "points": points,
     }

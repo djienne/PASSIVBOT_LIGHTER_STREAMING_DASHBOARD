@@ -29,6 +29,7 @@ The repo contains a FastAPI backend, a React frontend, and an OBS-friendly `/str
 - Backend: Python 3.10+, FastAPI, asyncssh, aiosqlite, httpx, websockets, Pydantic v2
 - Frontend: React 18, TypeScript, Vite, Zustand, Framer Motion, TradingView Lightweight Charts, Tailwind
 - Persistence: SQLite at `data/dashboard.db` (gitignored)
+- Docker: one production container serves the built frontend, API, WebSocket, and local SQLite DB.
 
 More detail lives in [`docs/DISCOVERY.md`](docs/DISCOVERY.md), [`docs/STREAMING.md`](docs/STREAMING.md), and [`LIGHTER_DASHBOARD_PLAN.md`](LIGHTER_DASHBOARD_PLAN.md).
 
@@ -55,6 +56,51 @@ npm install
 cd ..
 ```
 
+## Run with Docker
+
+Docker packages the dashboard only. The trading bot stays on the remote VPS, and the container connects outward to it over SSH.
+
+```bash
+docker compose up --build
+```
+
+Then open:
+
+- Dashboard: `http://127.0.0.1:8787/`
+- Stream mode: `http://127.0.0.1:8787/stream`
+
+The compose file:
+
+- mounts the host SSH directory read-only at `/run/secrets`;
+- stores SQLite in a persistent Docker volume at `/data/dashboard.db`;
+- binds the backend to `0.0.0.0:8787`;
+- serves the built Vite app from the FastAPI process.
+
+By default the API starts even if SSH is temporarily unreachable, and the collectors keep retrying in the background. Set `REQUIRE_SSH_ON_START=true` if you want container startup to wait for SSH. Docker expects the key at `/run/secrets/lighter.pem`, which maps to `./infos/lighter.pem` by default; set `HOST_SSH_DIR` in `.env` if your key lives in another host directory.
+
+If the remote Passivbot process is not running yet, the dashboard still serves normally. It will show live Lighter market data but no fill-derived bot state until the remote cache and health log files appear.
+
+### Remote bot running in Docker
+
+The expected bot root is:
+
+```text
+/home/ubuntu/passivbot_lighter
+```
+
+If that path is a bind-mounted host folder on the VPS, leave `REMOTE_DOCKER_CONTAINER` empty. The dashboard will keep reading `/home/ubuntu/passivbot_lighter/caches/lighter/lighter_01_pnls.json` and `/home/ubuntu/passivbot_lighter/logs/passivbot_debug.log` over SSH.
+
+If those files exist only inside the remote bot container, set:
+
+```dotenv
+REMOTE_DIR=/home/ubuntu/passivbot_lighter
+REMOTE_DOCKER_CONTAINER=<remote-passivbot-container-name>
+```
+
+In that mode the dashboard still connects to the VPS over SSH, but file reads run through `docker exec <container> sh -lc ...` on the VPS. The SSH user must be allowed to run `docker exec`. Keep the remote container name stable across restarts; if the bot container is stopped or restarting, reads fail temporarily, the dashboard keeps serving, and the collectors recover on the next successful poll.
+
+After a remote bot restart, the PnL cache may be empty until new fills appear. The dashboard SQLite volume keeps previously ingested fills unless you remove the `dashboard-data` volume.
+
 ## Run locally
 
 Run the services in two terminals:
@@ -80,7 +126,7 @@ If you prefer the helper script and have a bash-compatible shell available, you 
 
 ## Dev animation demo
 
-With the backend running, you can trigger demo events:
+Set `ENABLE_DEV_ROUTES=true` in `.env` before starting the backend. With the backend running, you can trigger demo events:
 
 ```bash
 curl -X POST http://127.0.0.1:8787/api/dev/inject -H "Content-Type: application/json" -d "{\"kind\":\"win\",\"pnl\":1.23}"
@@ -101,11 +147,16 @@ npm run build
 # backend
 cd ../backend
 .venv/Scripts/python -m pytest tests -v
+
+# Docker image
+cd ..
+docker compose build
 ```
 
 ## 24/7 stream notes
 
 - `/stream` is the fixed `1920x1080` layout intended for OBS window capture.
+- In Docker, use `http://127.0.0.1:8787/stream`; in local Vite dev, use `http://127.0.0.1:5173/stream`.
 - `scripts/run_stream.ps1` launches a kiosk-style Chrome window for the stream view.
 - See [`docs/STREAMING.md`](docs/STREAMING.md) for the OBS and YouTube workflow.
 
@@ -119,5 +170,7 @@ STREAMING_LIVE_PASSIBOT/
 |- docs/         discovery and streaming notes
 |- scripts/      local run, stream, discovery, and utility scripts
 |- infos/        local helper files and gitignored private SSH material
+|- Dockerfile    portable production build
+|- docker-compose.yml  local Docker runtime with persistent SQLite + SSH directory mount
 |- screen.png    screenshot used in this README
 ```

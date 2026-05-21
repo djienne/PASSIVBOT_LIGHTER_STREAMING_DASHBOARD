@@ -38,8 +38,8 @@ async def inject_event(body: InjectBody) -> dict:
     else:
         ev = TimelineEvent(event_id=eid, ts=now_ms(), category="order", label="order activity (demo)",
                             pnl=0.0, win_loss="neutral")
-    cursor = await repos.next_cursor()
-    await repos.insert_timeline(ev, cursor)
-    await repos.commit()
+    async with repos.transaction():
+        cursor = await repos.next_cursor()
+        await repos.insert_timeline(ev, cursor)
     await bus.publish("timeline.append", (cursor, ev))
     return {"ok": True, "event_id": eid, "cursor": cursor}

@@ -8,6 +8,7 @@ events on the bus when the snapshot changes materially.
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass
 
 from ..config import settings
@@ -152,26 +153,53 @@ async def compute_snapshot() -> MetricsSnapshot:
     return snap
 
 
-async def metrics_loop() -> None:
-    """5-minute sampler - recompute & publish on a cadence.
+async def _compute_publish_metrics(*, persist: bool) -> bool:
+    fills = await repos.all_fills()
+    if not fills:
+        return False
+    snap = await compute_snapshot()
+    if persist:
+        async with repos.transaction():
+            await repos.save_metrics(snap)
+    await bus.publish("metrics.update", snap)
+    return True
+
+
+async def _periodic_metrics_loop() -> None:
+    """5-minute sampler - recompute, persist, and publish on a cadence.
 
     Skips persisting the snapshot while the fill DB is still empty —
     otherwise the cold-start sample (realized=$0, equity=$baseline) sticks
     around in the equity curve and becomes a phantom "peak" that makes
     subsequent drawdown look catastrophic relative to nothing.
     """
-    log.info("metrics_loop: starting")
     while True:
         try:
-            fills = await repos.all_fills()
-            if not fills:
+            if not await _compute_publish_metrics(persist=True):
                 log.info("metrics_loop: no fills yet, waiting for collector")
                 await asyncio.sleep(15)
                 continue
-            snap = await compute_snapshot()
-            await repos.save_metrics(snap)
-            await repos.commit()
-            await bus.publish("metrics.update", snap)
         except Exception as exc:  # noqa: BLE001
             log.error("metrics_loop: error", error=str(exc))
         await asyncio.sleep(300)
+
+
+async def _event_metrics_loop() -> None:
+    last_market_publish = 0.0
+    async for topic, _payload in bus.subscribe("fill", "candle.update", "candle.new", "balance.update"):
+        try:
+            persist = topic == "fill"
+            if topic in ("candle.update", "candle.new"):
+                now = time.monotonic()
+                if now - last_market_publish < 3.0:
+                    continue
+                last_market_publish = now
+            await _compute_publish_metrics(persist=persist)
+        except Exception as exc:  # noqa: BLE001
+            log.error("metrics_loop: event recompute failed", topic=topic, error=str(exc))
+
+
+async def metrics_loop() -> None:
+    """Run periodic persisted samples plus event-triggered live recomputes."""
+    log.info("metrics_loop: starting")
+    await asyncio.gather(_periodic_metrics_loop(), _event_metrics_loop())

@@ -4,7 +4,7 @@ Short, practical guide tailored to this project. Assumes Windows 11 + Chrome.
 
 ## Prerequisites
 
-- **Dashboard running.** Either `bash scripts/run_dev.sh` (dev) or the NSSM service + kiosk Chrome via `scripts/run_stream.ps1`. The `/stream` route (http://127.0.0.1:5173/stream) is the OBS-ready layout.
+- **Dashboard running.** Use `docker compose up --build` for the portable production runtime, or `bash scripts/run_dev.sh` for local Vite development. The Docker `/stream` route (`http://127.0.0.1:8787/stream`) is the OBS-ready layout; local dev serves it at `http://127.0.0.1:5173/stream`.
 - **OBS Studio 30+** installed → https://obsproject.com/ (free).
 - **YouTube account** with Live Streaming enabled. YouTube requires a **24-hour verification wait** the first time — do that step once, in advance, the day before you plan to go live:
   1. https://www.youtube.com/verify → verify phone number.
@@ -84,17 +84,18 @@ YouTube will auto-save the stream as a VOD on your channel — trim the idle tai
 - **Candle colors read clean on YouTube's compressor** because the theme is high-contrast dark. Avoid red/green tweaks below ~50% saturation — they smear.
 - **Watch the health footer during the stream.** If "browser ↔ backend" flips to `closed`, OBS will still show a frozen dashboard — add an OBS **Stats** overlay so you notice.
 - **Latency chip** (`Tokyo ↔ Lighter · 1.xx ms`) is a nice constant in the header — good b-roll for "showing off" during voiceover.
+- **Remote bot restarts are okay.** The dashboard container keeps running while the remote Passivbot Docker container stops or restarts. It retries SSH reads and repopulates fill-derived panels when `/home/ubuntu/passivbot_lighter/caches/lighter/lighter_01_pnls.json` has data again.
 
 ## 24/7 auto-start (dedicated streaming PC)
 
 If you're leaving the box running continuously:
 
-1. **Backend as Windows service** via NSSM (see `README.md`).
+1. **Dashboard container** via Docker Compose with `restart: unless-stopped`.
 2. **`scripts/run_stream.ps1`** as a Task Scheduler "At logon" task.
 3. **OBS**: Settings → General → check **"Automatically start streaming when OBS launches"** and "Automatically start recording when OBS launches" (optional, for archival).
 4. Add OBS to Windows startup (Task Scheduler "At logon" → `C:\Program Files\obs-studio\bin\64bit\obs64.exe` with `--minimize-to-tray --startstreaming`).
 
-Chain: boot → NSSM starts backend → logon triggers kiosk Chrome + OBS → OBS auto-streams.
+Chain: boot -> Docker restarts dashboard -> logon triggers kiosk Chrome + OBS -> OBS auto-streams.
 
 ## Minimum bandwidth checklist
 
@@ -110,6 +111,8 @@ Chain: boot → NSSM starts backend → logon triggers kiosk Chrome + OBS → OB
 | Chart candles flicker/blur on playback | Bump bitrate to 6000 kbps, or switch encoder to NVENC if on x264. |
 | YouTube says "No data received" for > 60 s | OBS isn't streaming. Restart OBS; re-check **Stream key** (regenerate on YouTube if unsure). |
 | Latency chip stuck on one value | Expected — it probes every 5 min. The age counter ticks live. |
+| Fill/PnL panels are empty after remote bot restart | Expected until the bot writes fresh fills. Previously ingested fills remain if the dashboard Docker volume was not removed. |
+| SSH works but remote Docker reads fail | If bot files exist only inside the remote container, set `REMOTE_DOCKER_CONTAINER` to the stable container name and make sure the SSH user can run `docker exec`. |
 
 ## Copy-paste quick start
 
@@ -119,7 +122,7 @@ Chain: boot → NSSM starts backend → logon triggers kiosk Chrome + OBS → OB
 3. OBS Settings → Video → 1920x1080 base + output @ 30 fps.
 4. OBS Settings → Output → NVENC (or x264 veryfast), CBR 4500 Kbps, keyframe 2 s.
 5. Start the dashboard: `bash scripts/run_dev.sh` (or the 24/7 service).
-6. Open Chrome at http://127.0.0.1:5173/stream (kiosk mode if possible).
+6. Open Chrome at http://127.0.0.1:8787/stream for Docker, or http://127.0.0.1:5173/stream for local dev (kiosk mode if possible).
 7. OBS Sources → Window Capture → pick the Chrome window → Fit to screen.
 8. OBS → Start Streaming. YouTube → Go Live.
 ```

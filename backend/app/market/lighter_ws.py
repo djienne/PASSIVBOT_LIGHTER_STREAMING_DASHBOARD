@@ -80,8 +80,8 @@ class LighterWSClient:
 
         if self.current_candle is None or bucket > self.current_candle.t:
             if self.current_candle is not None:
-                await repos.upsert_candle(self.current_candle)
-                await repos.commit()
+                async with repos.transaction():
+                    await repos.upsert_candle(self.current_candle)
                 await bus.publish("candle.update", self.current_candle)
             new_candle = Candle(t=bucket, o=price, h=price, l=price, c=price, v=0.0)
             self.current_candle = new_candle
@@ -129,7 +129,7 @@ class LighterWSClient:
             await ws.send(json.dumps({"type": "subscribe", "channel": f"ticker/{mid}"}))
             await ws.send(json.dumps({"type": "subscribe", "channel": f"market_stats/{mid}"}))
             self.connected = True
-            await bus.publish("ws.connected", True)
+            await bus.publish("market_ws.update", True)
             try:
                 while not self._stop.is_set():
                     raw = await ws.recv()
@@ -144,7 +144,7 @@ class LighterWSClient:
                         await self._handle_market_stats(msg)
             finally:
                 self.connected = False
-                await bus.publish("ws.connected", False)
+                await bus.publish("market_ws.update", False)
 
     async def run(self) -> None:
         backoff = 1.0
@@ -155,7 +155,7 @@ class LighterWSClient:
             except Exception as exc:  # noqa: BLE001
                 log.warning("lighter_ws: disconnected; reconnecting", error=str(exc), backoff=backoff)
                 self.connected = False
-                await bus.publish("ws.connected", False)
+                await bus.publish("market_ws.update", False)
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 30.0)
 

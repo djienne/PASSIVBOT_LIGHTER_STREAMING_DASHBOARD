@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type {
-  BalanceSnapshot, Bootstrap, Candle, Envelope, FillEvent,
+  BalanceSnapshot, Bootstrap, BootstrapDelta, Candle, Envelope, FillEvent,
   FundingSnapshot, FundingTotal, HealthSnapshot, MetricsSnapshot, OrderAggregate, PositionView, TimelineEvent,
   VpsLatencySnapshot,
 } from "./types";
@@ -27,12 +27,14 @@ export interface DashState {
   lastEventId: string | null;
 
   health: HealthSnapshot | null;
+  marketWsConnected: boolean | null;
   vpsLatency: VpsLatencySnapshot | null;
   wsStatus: "idle" | "connecting" | "open" | "closed";
 
   debugTrigger: TimelineEvent | null;
 
   applyBootstrap: (b: Bootstrap) => void;
+  applyBootstrapDelta: (b: BootstrapDelta) => void;
   applyEnvelope: (e: Envelope) => void;
   setWSStatus: (s: DashState["wsStatus"]) => void;
   fireDebugWin: () => void;
@@ -113,6 +115,7 @@ export const useDash = create<DashState>((set) => ({
   lastEventId: null,
 
   health: null,
+  marketWsConnected: null,
   vpsLatency: null,
   wsStatus: "idle",
 
@@ -135,8 +138,26 @@ export const useDash = create<DashState>((set) => ({
     metrics: b.metrics,
     timeline: b.timeline,
     health: b.health,
+    marketWsConnected: b.market_ws_connected ?? b.health?.ws_connected ?? null,
     vpsLatency: b.vps_latency,
   })),
+
+  applyBootstrapDelta: (b) => set((state) => {
+    let timeline = state.timeline;
+    let lastEventId = state.lastEventId;
+    for (const item of b.timeline) {
+      if (timeline.find(x => x.event_id === item.event.event_id)) continue;
+      timeline = [item.event, ...timeline].slice(0, MAX_TIMELINE);
+      lastEventId = item.event.event_id;
+    }
+    return {
+      schemaVersion: b.schema_version,
+      cursor: Math.max(state.cursor, b.cursor),
+      serverTimeOffsetMs: b.server_time - Date.now(),
+      timeline,
+      lastEventId,
+    };
+  }),
 
   applyEnvelope: (e) => set((state) => {
     switch (e.type) {
@@ -192,12 +213,23 @@ export const useDash = create<DashState>((set) => ({
         return { fundingTotal: e.data as FundingTotal };
       case "health.update": {
         const d = e.data as unknown as (HealthSnapshot | { ws_connected: boolean });
-        if ("ts" in d) return { health: d };
-        if ("ws_connected" in d && state.health) {
-          return { health: { ...state.health, ws_connected: d.ws_connected } };
+        if ("ts" in d) {
+          return {
+            health: d,
+            marketWsConnected: state.marketWsConnected ?? d.ws_connected,
+          };
         }
+        if ("ws_connected" in d && state.health) {
+          return {
+            health: { ...state.health, ws_connected: d.ws_connected },
+            marketWsConnected: d.ws_connected,
+          };
+        }
+        if ("ws_connected" in d) return { marketWsConnected: d.ws_connected };
         return {};
       }
+      case "market_ws.update":
+        return { marketWsConnected: e.data.connected };
       case "vps_latency.update":
         return { vpsLatency: e.data as VpsLatencySnapshot };
       default:

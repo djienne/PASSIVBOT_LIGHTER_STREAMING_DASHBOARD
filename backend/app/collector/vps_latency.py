@@ -29,7 +29,7 @@ _PING_SUMMARY = re.compile(
 
 
 async def _probe_icmp(transport) -> VpsLatencySnapshot | None:  # type: ignore[no-untyped-def]
-    out = await transport._run(f"ping -c 5 -W 2 {TARGET} 2>&1 | tail -3")
+    out = await transport.run_command(f"ping -c 5 -W 2 {TARGET} 2>&1 | tail -3")
     m = _PING_SUMMARY.search(out.decode(errors="replace"))
     if not m:
         return None
@@ -48,10 +48,10 @@ async def _probe_tcp(transport) -> VpsLatencySnapshot | None:  # type: ignore[no
     # 5 handshakes, take the min — approximates the network floor.
     cmd = (
         "for i in 1 2 3 4 5; do "
-        f"curl -o /dev/null -s -w '%{{time_connect}}\\n' https://{TARGET}/; "
+        f"curl --connect-timeout 2 --max-time 4 -o /dev/null -s -w '%{{time_connect}}\\n' https://{TARGET}/; "
         "done"
     )
-    out = await transport._run(cmd)
+    out = await transport.run_command(cmd)
     samples = []
     for line in out.decode(errors="replace").splitlines():
         line = line.strip()
@@ -96,8 +96,8 @@ class VpsLatencyProbe:
         while True:
             snap = await self.probe_once()
             if snap is not None:
-                await repos.save_vps_latency(snap)
-                await repos.commit()
+                async with repos.transaction():
+                    await repos.save_vps_latency(snap)
                 await bus.publish("vps_latency.update", snap)
                 log.info("vps_latency: sample", avg_ms=snap.avg_ms, method=snap.method)
             # 5-minute cadence — this is a "show off" number, not a control signal.

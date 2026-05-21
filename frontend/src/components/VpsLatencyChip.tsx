@@ -5,24 +5,35 @@ import { useDash } from "../lib/store";
 /** Small latency evaluation badge for the VPS-to-Lighter path. */
 export default function VpsLatencyChip() {
   const latency = useDash(s => s.vpsLatency);
-  const [ageS, setAgeS] = useState(0);
+  const [mountedAt] = useState(() => Date.now());
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    const id = setInterval(() => {
-      if (latency) setAgeS(Math.max(0, Math.floor((Date.now() - latency.ts) / 1000)));
-    }, 1000);
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [latency]);
+  }, []);
 
   if (!latency) {
+    const elapsedS = Math.max(0, Math.floor((now - mountedAt) / 1000));
+    const waiting = elapsedS >= 45;
     return (
-      <div className="pane px-3 py-2 flex items-center gap-2 text-xs">
-        <span className="w-1.5 h-1.5 rounded-full bg-neutral animate-pulse" />
-        <span className="text-subtle">running latency evaluation: AWS Tokyo - Lighter...</span>
+      <div
+        className="pane px-3 py-2 flex items-center gap-2 text-xs"
+        title={
+          waiting
+            ? "No VPS-to-Lighter latency sample yet. Check VPS_HOST, VPS_USER, SSH key, and VPS reachability."
+            : "Waiting for the first VPS-to-Lighter latency sample."
+        }
+      >
+        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${waiting ? "bg-warn" : "bg-neutral"}`} />
+        <span className={waiting ? "text-warn" : "text-subtle"}>
+          {waiting ? "VPS latency waiting for SSH: AWS Tokyo - Lighter" : "running latency evaluation: AWS Tokyo - Lighter..."}
+        </span>
       </div>
     );
   }
 
+  const ageS = Math.max(0, Math.floor((now - latency.ts) / 1000));
   const ms = latency.avg_ms;
   const tone =
     ms < 5 ? "text-bull" :

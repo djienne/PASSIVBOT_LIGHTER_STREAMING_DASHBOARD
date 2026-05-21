@@ -33,6 +33,7 @@ frontend/tsconfig.tsbuildinfo
 frontend/*.tsbuildinfo
 *.log
 .DS_Store
+dashboard_code_bundle*.md
 
 # editor
 .vscode/

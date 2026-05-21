@@ -30,12 +30,8 @@ class HealthLogTail:
     async def poll_once(self) -> int:
         """Use `grep` on the remote to pull the last N health lines cheaply."""
         remote = settings.debug_log_remote_path
-        # Grep the current + rotated logs for the last few matches.
-        cmd = (
-            f"grep -h '\\[health\\]' {remote} {remote}.1 2>/dev/null | tail -5"
-        )
         try:
-            out = await self.t._run(cmd)  # type: ignore[attr-defined]
+            out = await self.t.health_lines(remote)
         except AttributeError:
             # FakeSSH path — read fixture instead
             return 0
@@ -53,12 +49,12 @@ class HealthLogTail:
             if not self._seen.add(key):
                 continue
             health = health.model_copy(update={"vps_sync_age_ms": now_ms() - health.ts})
-            await repos.save_health(health)
-            if balance:
-                await repos.upsert_balance(balance)
-            if agg:
-                await repos.upsert_order_aggregate(agg)
-            await repos.commit()
+            async with repos.transaction():
+                await repos.save_health(health)
+                if balance:
+                    await repos.upsert_balance(balance)
+                if agg:
+                    await repos.upsert_order_aggregate(agg)
             await bus.publish("health.update", health)
             if balance:
                 await bus.publish("balance.update", balance)

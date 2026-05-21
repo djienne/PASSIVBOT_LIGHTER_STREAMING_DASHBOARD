@@ -5,6 +5,7 @@ import { fmtDuration } from "../lib/format";
 
 export default function HealthFooter() {
   const health = useDash(s => s.health);
+  const marketWsConnected = useDash(s => s.marketWsConnected);
   const wsStatus = useDash(s => s.wsStatus);
   const metrics = useDash(s => s.metrics);
 
@@ -21,7 +22,7 @@ export default function HealthFooter() {
     <div className="pane px-4 py-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-mono">
       <Status label="backend"   ok={true} />
       <Status label="browser ↔ backend" ok={wsStatus === "open"} detail={wsStatus} />
-      <Status label="lighter ws" ok={health?.ws_connected === true} />
+      <Status label="lighter ws" ok={marketWsConnected === true} detail={marketWsConnected == null ? "unknown" : undefined} />
       <Divider />
       <Metric label="bot uptime"  value={fmtDuration(health?.bot_uptime_seconds)} />
       <Metric label="vps sync"    value={vpsAge != null ? `${vpsAge.toFixed(0)}s ago` : "—"} />

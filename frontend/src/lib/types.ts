@@ -34,6 +34,28 @@ export interface TimelineEvent {
   payload: Record<string, unknown>;
 }
 
+export interface PnlCurvePoint {
+  event_id: string;
+  ts: number;
+  side: Side;
+  qty: number;
+  price: number;
+  pnl: number;
+  value: number;
+}
+
+export interface PnlCurveResponse {
+  schema_version: number;
+  server_time: number;
+  baseline: number;
+  points: PnlCurvePoint[];
+}
+
+export interface TimelineDeltaItem {
+  cursor: number;
+  event: TimelineEvent;
+}
+
 export interface MetricsSnapshot {
   ts: number;
   baseline: number;
@@ -136,7 +158,18 @@ export interface Bootstrap {
   metrics: MetricsSnapshot;
   timeline: TimelineEvent[];
   health: HealthSnapshot | null;
+  market_ws_connected: boolean | null;
   vps_latency: VpsLatencySnapshot | null;
+}
+
+export interface BootstrapDelta {
+  schema_version: number;
+  server_time: number;
+  cursor: number;
+  server_cursor: number;
+  has_more: boolean;
+  since: number;
+  timeline: TimelineDeltaItem[];
 }
 
 export type Envelope =
@@ -146,6 +179,7 @@ export type Envelope =
   | { v: number; type: "timeline.append"; id: string; ts: number; cursor: number; data: TimelineEvent }
   | { v: number; type: "metrics.update"; id: string; ts: number; cursor: number; data: MetricsSnapshot }
   | { v: number; type: "health.update"; id: string; ts: number; cursor: number; data: HealthSnapshot | { ws_connected: boolean } }
+  | { v: number; type: "market_ws.update"; id: string; ts: number; cursor: number; data: { connected: boolean } }
   | { v: number; type: "balance.update"; id: string; ts: number; cursor: number; data: BalanceSnapshot }
   | { v: number; type: "order.update"; id: string; ts: number; cursor: number; data: OrderAggregate }
   | { v: number; type: "funding.update"; id: string; ts: number; cursor: number; data: FundingSnapshot }

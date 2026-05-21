@@ -129,7 +129,6 @@ function mergeIntoGroup(group: FeedRow, ev: TimelineEvent): void {
 
   group.tailTs = ev.ts;
   group.count += 1;
-  group.key = `${group.key}:${ev.event_id}`;
 }
 
 function labelFor(ev: FeedRow): string {

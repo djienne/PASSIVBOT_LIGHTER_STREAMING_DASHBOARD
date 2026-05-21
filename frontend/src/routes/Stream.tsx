@@ -9,15 +9,11 @@ import HealthFooter from "../components/HealthFooter";
 import VpsLatencyChip from "../components/VpsLatencyChip";
 import CurrentTimeChip from "../components/CurrentTimeChip";
 import AnimationCoordinator from "../components/anim/AnimationCoordinator";
-import { fetchBootstrap } from "../lib/api";
-import { makeWS } from "../lib/ws";
-import { useDash } from "../lib/store";
+import { useDashboardLive } from "../lib/useDashboardLive";
 
 /** Locked 1920x1080 broadcast layout for OBS capture. No cursor, no scroll, no chrome. */
 export default function Stream() {
-  const applyBootstrap = useDash(s => s.applyBootstrap);
-  const applyEnvelope = useDash(s => s.applyEnvelope);
-  const setWSStatus = useDash(s => s.setWSStatus);
+  useDashboardLive();
 
   useEffect(() => {
     document.body.classList.add("stream-root");
@@ -26,32 +22,11 @@ export default function Stream() {
       html, body, #root { cursor: none; overflow: hidden; }
     `;
     document.head.appendChild(style);
-
-    let cancelled = false;
-    const boot = async () => {
-      try {
-        const b = await fetchBootstrap();
-        if (!cancelled) applyBootstrap(b);
-      } catch {
-        if (!cancelled) setTimeout(boot, 2000);
-      }
-    };
-    boot();
-
-    const ws = makeWS();
-    const offMsg = ws.onMessage(e => applyEnvelope(e));
-    const offStatus = ws.onStatus(setWSStatus);
-    ws.connect();
-
     return () => {
-      cancelled = true;
-      offMsg();
-      offStatus();
-      ws.close();
       document.body.classList.remove("stream-root");
       style.remove();
     };
-  }, [applyBootstrap, applyEnvelope, setWSStatus]);
+  }, []);
 
   return (
     <div

@@ -89,3 +89,4 @@ def test_event_ids_are_unique():
     # Duplicates are allowed in cache (same id for sub-fills) but we want
     # the *canonical* id to dedupe cleanly. Here we verify the id is stable.
     assert all(i.startswith("lighter:") or i.startswith("fp:") for i in ids)
+    assert len(ids) == len(set(ids))

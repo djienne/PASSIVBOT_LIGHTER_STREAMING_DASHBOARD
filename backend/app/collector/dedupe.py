@@ -7,12 +7,10 @@ from collections import OrderedDict
 
 
 def fill_event_id(symbol: str, ts_ms: int, side: str, qty: float, price: float, raw_id: str | None) -> str:
-    """Prefer native id when present — it's already a stable Lighter sequence.
-    Otherwise fingerprint the fill from its intrinsic fields."""
-    if raw_id:
-        return f"lighter:{raw_id}"
-    h = hashlib.sha1(f"{symbol}|{ts_ms}|{side}|{qty:.8f}|{price:.8f}".encode()).hexdigest()[:16]
-    return f"fp:{h}"
+    """Fingerprint every fill; Lighter raw ids can repeat across sub-fills."""
+    base = f"{symbol}|{ts_ms}|{side}|{qty:.8f}|{price:.8f}|{raw_id or ''}"
+    h = hashlib.sha1(base.encode()).hexdigest()[:16]
+    return f"lighter:{raw_id}:{h}" if raw_id else f"fp:{h}"
 
 
 def health_event_id(log_line_ts_ms: int) -> str:

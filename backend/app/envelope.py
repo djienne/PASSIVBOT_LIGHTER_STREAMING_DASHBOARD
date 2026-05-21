@@ -22,6 +22,7 @@ EnvelopeType = Literal[
     "metrics.update",
     "timeline.append",
     "health.update",
+    "market_ws.update",
     "vps_latency.update",
     "replay.start",
     "replay.end",

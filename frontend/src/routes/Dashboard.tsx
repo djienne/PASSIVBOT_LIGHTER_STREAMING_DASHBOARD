@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import TopStrip from "../components/TopStrip";
 import ChartPanel from "../components/ChartPanel";
@@ -11,42 +10,10 @@ import VpsLatencyChip from "../components/VpsLatencyChip";
 import CurrentTimeChip from "../components/CurrentTimeChip";
 import AnimationCoordinator from "../components/anim/AnimationCoordinator";
 import DebugGifButton from "../components/DebugGifButton";
-import { fetchBootstrap } from "../lib/api";
-import { makeWS } from "../lib/ws";
-import { useDash } from "../lib/store";
+import { useDashboardLive } from "../lib/useDashboardLive";
 
 export default function Dashboard() {
-  const applyBootstrap = useDash(s => s.applyBootstrap);
-  const applyEnvelope = useDash(s => s.applyEnvelope);
-  const setWSStatus = useDash(s => s.setWSStatus);
-
-  useEffect(() => {
-    let cancelled = false;
-    let reboot: number | null = null;
-
-    const boot = async () => {
-      try {
-        const b = await fetchBootstrap();
-        if (!cancelled) applyBootstrap(b);
-      } catch {
-        if (!cancelled) reboot = window.setTimeout(boot, 2000);
-      }
-    };
-    boot();
-
-    const ws = makeWS();
-    const offMsg = ws.onMessage(env => applyEnvelope(env));
-    const offStatus = ws.onStatus(setWSStatus);
-    ws.connect();
-
-    return () => {
-      cancelled = true;
-      if (reboot) window.clearTimeout(reboot);
-      offMsg();
-      offStatus();
-      ws.close();
-    };
-  }, [applyBootstrap, applyEnvelope, setWSStatus]);
+  useDashboardLive();
 
   return (
     <div className="min-h-full p-4 md:p-6 flex flex-col gap-4">

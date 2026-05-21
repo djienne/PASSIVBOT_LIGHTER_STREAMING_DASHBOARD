@@ -17,10 +17,16 @@ def test_lru_add_returns_true_once():
     assert "d" in s
 
 
-def test_native_id_beats_fingerprint():
+def test_native_id_is_part_of_fingerprint():
     a = fill_event_id("HYPE/USDC:USDC", 1774015215376, "buy", 2.06, 38.9577, raw_id="12345")
+    b = fill_event_id("HYPE/USDC:USDC", 1774015215377, "buy", 2.06, 38.9577, raw_id="12345")
+    assert a.startswith("lighter:12345:")
+    assert b.startswith("lighter:12345:")
+    assert a != b
+
+
+def test_no_raw_id_uses_fingerprint_prefix():
     b = fill_event_id("HYPE/USDC:USDC", 1774015215376, "buy", 2.06, 38.9577, raw_id=None)
-    assert a.startswith("lighter:12345")
     assert b.startswith("fp:")
 
 

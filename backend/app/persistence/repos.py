@@ -7,7 +7,10 @@ so replayed snapshots are deduped the same way.
 
 from __future__ import annotations
 
+import asyncio
 import json
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
 from typing import Any
 
 from ..models import (
@@ -23,13 +26,27 @@ from ..models import (
 )
 from .db import db
 
+_write_lock = asyncio.Lock()
+
+
+@asynccontextmanager
+async def transaction() -> AsyncIterator[None]:
+    async with _write_lock:
+        await db.conn.execute("BEGIN IMMEDIATE")
+        try:
+            yield
+        except Exception:
+            await db.conn.rollback()
+            raise
+        else:
+            await db.conn.commit()
+
 
 async def next_cursor() -> int:
     async with db.conn.execute(
         "UPDATE cursor_state SET value = value + 1 WHERE id = 1 RETURNING value"
     ) as cur:
         row = await cur.fetchone()
-        await db.conn.commit()
         return int(row[0])
 
 

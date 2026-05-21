@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart, ColorType, CrosshairMode,
   IChartApi, ISeriesApi, LineStyle, SeriesMarker, Time,
 } from "lightweight-charts";
 import { useDash } from "../lib/store";
+import { fetchPnlCurve } from "../lib/api";
 import { fmtPct, fmtUSD, polarity } from "../lib/format";
-import type { TimelineEvent } from "../lib/types";
+import type { PnlCurvePoint, Side } from "../lib/types";
 
 const BG          = "#05070d";
 const GRID        = "#111827";
@@ -17,22 +18,30 @@ const BUY_DOT     = "#34d399";
 const SELL_DOT    = "#f87171";
 
 type CurvePoint = { time: Time; value: number };
+type CurveTrade = {
+  event_id: string;
+  ts: number;
+  side?: Side | null;
+  price?: number | null;
+  qty?: number | null;
+  pnl?: number | null;
+};
 
-function buildCurves(timeline: TimelineEvent[], baseline: number): {
+function buildCurves(tradesInput: CurveTrade[], baseline: number): {
   dollar: CurvePoint[];
   percent: CurvePoint[];
   markers: SeriesMarker<Time>[];
   buyCount: number;
   sellCount: number;
 } {
-  // Timeline is newest-first; PnL curve needs chronological order.
+  // Live timeline is newest-first; PnL curve needs chronological order.
   // Lightweight-Charts uses second-granularity time keys; multiple fills in the
   // same second (e.g. sub-fills sharing a timestamp) must be merged to one
   // point or setData throws "data must be asc ordered". Markers have the same
   // constraint, so we aggregate per-second and label the bucket by the last
   // trade's side (which also drives the curve direction).
-  const trades = timeline
-    .filter(ev => ev.category === "trade" && ev.pnl != null)
+  const trades = tradesInput
+    .filter(ev => ev.pnl != null)
     .slice()
     .sort((a, b) => a.ts - b.ts);
   const dollar: CurvePoint[] = [];
@@ -77,6 +86,7 @@ export default function PnlCurvePanel() {
   const timeline = useDash(s => s.timeline);
   const baseline = useDash(s => s.baseline);
   const metrics = useDash(s => s.metrics);
+  const [history, setHistory] = useState<PnlCurvePoint[]>([]);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -84,7 +94,33 @@ export default function PnlCurvePanel() {
   const percentSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const zeroLineRef = useRef<ReturnType<ISeriesApi<"Area">["createPriceLine"]> | null>(null);
 
-  const curves = useMemo(() => buildCurves(timeline, baseline), [timeline, baseline]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const curve = await fetchPnlCurve();
+        if (!cancelled) setHistory(curve.points);
+      } catch {
+        // Fall back to the bootstrapped live timeline if the endpoint is unavailable.
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const tradeEvents = useMemo<CurveTrade[]>(() => {
+    const byId = new Map<string, CurveTrade>();
+    for (const point of history) {
+      byId.set(point.event_id, point);
+    }
+    for (const ev of timeline) {
+      if (ev.category !== "trade" || ev.pnl == null || byId.has(ev.event_id)) continue;
+      byId.set(ev.event_id, ev);
+    }
+    return Array.from(byId.values());
+  }, [history, timeline]);
+
+  const curves = useMemo(() => buildCurves(tradeEvents, baseline), [tradeEvents, baseline]);
 
   useEffect(() => {
     if (!containerRef.current) return;
