@@ -40,6 +40,7 @@ dashboard_code_bundle*.md
 .idea/
 
 # local media / scratch
+title_description.txt
 musics/
 to_process/
 /this-is-fine-fine.gif

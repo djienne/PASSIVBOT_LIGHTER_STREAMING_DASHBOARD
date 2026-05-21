@@ -31,12 +31,12 @@ The repo contains a FastAPI backend, a React frontend, and an OBS-friendly `/str
 - Persistence: SQLite at `data/dashboard.db` (gitignored)
 - Docker: one production container serves the built frontend, API, WebSocket, and local SQLite DB.
 
-More detail lives in [`docs/DISCOVERY.md`](docs/DISCOVERY.md), [`docs/STREAMING.md`](docs/STREAMING.md), and [`LIGHTER_DASHBOARD_PLAN.md`](LIGHTER_DASHBOARD_PLAN.md).
+More detail lives in [`docs/DISCOVERY.md`](docs/DISCOVERY.md) and [`docs/STREAMING.md`](docs/STREAMING.md).
 
 ## Safe setup
 
 1. Copy `.env.example` to `.env`.
-2. Fill in your own `VPS_HOST`, `VPS_USER`, `SSH_KEY_PATH`, and `REMOTE_DIR`.
+2. Fill in your own `VPS_HOST`, `VPS_USER`, and `REMOTE_DIR`. For local Python runs, set `SSH_KEY_PATH`; for Docker, set `HOST_SSH_DIR` if your key directory is not `./infos`.
 3. Keep `.env`, YouTube stream keys, private SSH keys, and SQLite files out of git.
 
 Shared defaults in the tracked files are intentionally placeholders so the repo can be pushed safely.
@@ -76,7 +76,7 @@ The compose file:
 - binds the backend to `0.0.0.0:8787`;
 - serves the built Vite app from the FastAPI process.
 
-By default the API starts even if SSH is temporarily unreachable, and the collectors keep retrying in the background. Set `REQUIRE_SSH_ON_START=true` if you want container startup to wait for SSH. Docker expects the key at `/run/secrets/lighter.pem`, which maps to `./infos/lighter.pem` by default; set `HOST_SSH_DIR` in `.env` if your key lives in another host directory.
+By default the API starts even if SSH is temporarily unreachable, and the collectors keep retrying in the background. Set `REQUIRE_SSH_ON_START=true` if you want container startup to wait for SSH. Docker mounts `${HOST_SSH_DIR:-./infos}` at `/run/secrets` and uses `SSH_KEY_PATH=/run/secrets/lighter.pem` inside the container; local Python runs use the `SSH_KEY_PATH` value from `.env` directly.
 
 If the remote Passivbot process is not running yet, the dashboard still serves normally. It will show live Lighter market data but no fill-derived bot state until the remote cache and health log files appear.
 
