@@ -5,8 +5,9 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 
-from ..models import BalanceSnapshot, FillEvent, HealthSnapshot, OrderAggregate, TimelineEvent
+from ..models import BalanceSnapshot, FillEvent, HealthSnapshot, OrderAggregate
 from .dedupe import fill_event_id, health_event_id
+from .trade_classifier import fill_to_timeline
 
 
 def parse_fill_record(raw: dict) -> FillEvent:
@@ -32,30 +33,6 @@ def parse_fill_record(raw: dict) -> FillEvent:
         pnl=pnl,
         position_side=position_side,  # type: ignore[arg-type]
         raw_id=raw_id,
-    )
-
-
-def fill_to_timeline(f: FillEvent) -> TimelineEvent:
-    if f.side == "buy":
-        label, category, win_loss = "entry fill", "trade", "neutral"
-    else:
-        if f.pnl > 0:
-            label, category, win_loss = "winning close", "trade", "win"
-        elif f.pnl < 0:
-            label, category, win_loss = "losing close", "trade", "loss"
-        else:
-            label, category, win_loss = "close fill", "trade", "neutral"
-    return TimelineEvent(
-        event_id=f.event_id,
-        ts=f.ts,
-        category=category,  # type: ignore[arg-type]
-        label=label,
-        side=f.side,
-        price=f.price,
-        qty=f.qty,
-        pnl=f.pnl,
-        win_loss=win_loss,  # type: ignore[arg-type]
-        payload={"raw_id": f.raw_id, "symbol": f.symbol},
     )
 
 

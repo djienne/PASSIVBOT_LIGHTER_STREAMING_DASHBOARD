@@ -19,6 +19,7 @@ from .collector.cache_poller import CachePoller
 from .collector.funding_total import estimator as funding_total_estimator
 from .collector.log_tail import HealthLogTail
 from .collector.ssh_client import SSHTransport, make_transport
+from .collector.trade_classifier import timeline_events_from_fills
 from .collector.vps_latency import VpsLatencyProbe
 from .config import settings
 from .logging import configure_logging, log
@@ -42,12 +43,25 @@ async def _bootstrap_candles() -> None:
     log.info("startup: candles seeded", count=len(candles))
 
 
+async def _reconcile_trade_timeline() -> None:
+    """Backfill position-aware trade labels/payloads for existing fills."""
+    async with repos.transaction():
+        fills = await repos.all_fills()
+        if not fills:
+            return
+        events = timeline_events_from_fills(fills)
+        updated = await repos.update_trade_timeline_events(events.values())
+    if updated:
+        log.info("startup: trade timeline reconciled", count=updated)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
     configure_logging()
     log.info("startup: begin")
 
     await db.connect()
+    await _reconcile_trade_timeline()
     await _bootstrap_candles()
 
     tasks = [

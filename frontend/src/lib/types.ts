@@ -4,6 +4,7 @@ export type Side = "buy" | "sell";
 export type PositionSide = "long" | "short" | "flat";
 export type TimelineCategory = "trade" | "order" | "position" | "system";
 export type WinLoss = "win" | "loss" | "neutral";
+export type TradeAction = "entry" | "dca" | "partial_exit" | "full_exit" | "exit_unknown";
 
 export interface Candle {
   t: number; o: number; h: number; l: number; c: number; v: number;
@@ -31,7 +32,17 @@ export interface TimelineEvent {
   qty?: number | null;
   pnl?: number | null;
   win_loss: WinLoss;
-  payload: Record<string, unknown>;
+  payload: Record<string, unknown> & {
+    trade_action?: TradeAction;
+    base_asset?: string;
+    quote_asset?: string;
+    position_size_before?: number;
+    position_size_after?: number;
+    avg_entry_before?: number;
+    avg_entry_after?: number;
+    raw_id?: string | null;
+    symbol?: string;
+  };
 }
 
 export interface PnlCurvePoint {

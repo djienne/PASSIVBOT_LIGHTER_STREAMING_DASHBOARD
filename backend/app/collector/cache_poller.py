@@ -26,8 +26,9 @@ from ..logging import log
 from ..models import FillEvent, TimelineEvent
 from ..persistence import repos
 from .dedupe import LRUSet
-from .parsers import fill_to_timeline, parse_fill_record
+from .parsers import parse_fill_record
 from .ssh_client import SSHTransport
+from .trade_classifier import timeline_events_from_fills
 
 
 class CachePoller:
@@ -85,7 +86,7 @@ class CachePoller:
             log.warning("cache_poller: expected a JSON array", kind=type(records).__name__)
             return 0
 
-        pending: list[tuple[FillEvent, dict, TimelineEvent]] = []
+        pending: list[tuple[FillEvent, dict]] = []
         batch_seen: set[str] = set()
         for rec in records:
             try:
@@ -95,17 +96,23 @@ class CachePoller:
                 continue
             if fill.event_id in self._seen or fill.event_id in batch_seen:
                 continue
-            tl = fill_to_timeline(fill)
             batch_seen.add(fill.event_id)
-            pending.append((fill, rec, tl))
+            pending.append((fill, rec))
+
+        known_fills = await repos.all_fills()
+        timeline_by_id = timeline_events_from_fills([
+            *known_fills,
+            *(fill for fill, _ in pending),
+        ])
 
         published: list[tuple[int, FillEvent, TimelineEvent]] = []
         try:
             async with repos.transaction():
-                for fill, rec, tl in pending:
+                for fill, rec in pending:
                     inserted = await repos.insert_fill(fill, rec)
                     if not inserted:
                         continue
+                    tl = timeline_by_id[fill.event_id]
                     cursor = await repos.next_cursor()
                     tl_inserted = await repos.insert_timeline(tl, cursor)
                     if tl_inserted:

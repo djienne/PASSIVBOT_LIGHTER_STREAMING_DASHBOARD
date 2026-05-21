@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useMemo } from "react";
 import { useDash } from "../lib/store";
 import type { TimelineEvent } from "../lib/types";
-import { fmtNumber, fmtUSD } from "../lib/format";
+import { formatTradePnl, formatTradePrice, formatTradeQty, tradeFeedTitle } from "../lib/tradeLabels";
 
 const VISIBLE = 10;
 const GROUP_WINDOW_MS = 10_000;
@@ -18,6 +18,7 @@ type FeedRow = {
   qty: number | null;
   pnl: number | null;
   win_loss: TimelineEvent["win_loss"];
+  payload: TimelineEvent["payload"];
   count: number;
 };
 
@@ -49,15 +50,15 @@ export default function ActionFeed() {
                   <span className="font-medium text-text truncate">{labelFor(ev)}</span>
                   {ev.pnl != null && ev.pnl !== 0 && (
                     <span className={ev.pnl > 0 ? "text-bull font-mono" : "text-bear font-mono"}>
-                      {fmtUSD(ev.pnl, 2)}
+                      {formatTradePnl(ev)}
                     </span>
                   )}
                 </div>
                 <div className="text-xs font-mono text-subtle mt-0.5 flex items-center gap-3">
                   {ev.count > 1 && <span>{ev.count} fills</span>}
                   {ev.side && <span className={ev.side === "buy" ? "text-bull" : "text-bear"}>{ev.side.toUpperCase()}</span>}
-                  {ev.qty != null && <span>qty {fmtNumber(ev.qty, 4)}</span>}
-                  {ev.price != null && <span>{`${ev.count > 1 ? "avg" : "@"} $${ev.price.toFixed(4)}`}</span>}
+                  {ev.qty != null && <span>qty {formatTradeQty(ev)}</span>}
+                  {ev.price != null && <span>{`${ev.count > 1 ? "avg" : "@"} ${formatTradePrice(ev)}`}</span>}
                 </div>
               </div>
             </motion.div>
@@ -91,6 +92,7 @@ function groupTimeline(timeline: TimelineEvent[]): FeedRow[] {
       qty: ev.qty ?? null,
       pnl: ev.pnl ?? null,
       win_loss: ev.win_loss,
+      payload: ev.payload,
       count: 1,
     });
   }
@@ -132,7 +134,8 @@ function mergeIntoGroup(group: FeedRow, ev: TimelineEvent): void {
 }
 
 function labelFor(ev: FeedRow): string {
-  return ev.count > 1 ? `${ev.label} x${ev.count}` : ev.label;
+  const label = ev.category === "trade" ? tradeFeedTitle(ev) : ev.label;
+  return ev.count > 1 ? `${label} x${ev.count}` : label;
 }
 
 function tintFor(ev: Pick<FeedRow, "category" | "win_loss">): string {

@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import type { TimelineEvent } from "../../lib/types";
-import { fmtUSD } from "../../lib/format";
+import { formatTradePnl } from "../../lib/tradeLabels";
 
 export default function LossFade({ ev }: { ev: TimelineEvent }) {
   return (
@@ -26,7 +26,7 @@ export default function LossFade({ ev }: { ev: TimelineEvent }) {
         animate={{ y: 30, opacity: [0, 1, 0], scale: [0.95, 1, 0.95] }}
         transition={{ duration: 2.0 }}
       >
-        {fmtUSD(ev.pnl ?? 0, 2)}
+        {formatTradePnl(ev)}
       </motion.div>
     </motion.div>
   );

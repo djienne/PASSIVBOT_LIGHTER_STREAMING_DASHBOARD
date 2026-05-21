@@ -11,7 +11,7 @@ import asyncio
 import json
 import math
 from contextlib import asynccontextmanager
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from typing import Any
 
 from ..config import settings
@@ -145,6 +145,26 @@ async def insert_timeline(ev: TimelineEvent, cursor: int) -> bool:
     ) as cur:
         inserted = cur.rowcount > 0
     return inserted
+
+
+async def update_trade_timeline_events(events: Iterable[TimelineEvent]) -> int:
+    """Refresh existing trade timeline rows while preserving their cursors."""
+    updated = 0
+    for ev in events:
+        async with db.conn.execute(
+            """
+            UPDATE timeline_events
+            SET ts = ?, label = ?, side = ?, price = ?, qty = ?, pnl = ?, win_loss = ?, payload = ?
+            WHERE event_id = ? AND category = 'trade'
+            """,
+            (
+                ev.ts, ev.label, ev.side, ev.price, ev.qty, ev.pnl, ev.win_loss,
+                json.dumps(ev.payload), ev.event_id,
+            ),
+        ) as cur:
+            if cur.rowcount > 0:
+                updated += cur.rowcount
+    return updated
 
 
 async def recent_timeline(limit: int = 200) -> list[TimelineEvent]:

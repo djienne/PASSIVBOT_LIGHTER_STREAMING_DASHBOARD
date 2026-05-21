@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { fmtUSD } from "../../lib/format";
+import { formatSignedQuoteAmount } from "../../lib/tradeLabels";
 
 // The gif itself loops every 2.2 s (22 frames @ 10 fps, measured via ffprobe).
 export const CRISIS_GIF_LOOP_MS = 2200;
@@ -44,7 +44,7 @@ export default function CrisisGif({ id, pnl }: { id: string; pnl: number }) {
         exit={{ opacity: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
       >
-        {fmtUSD(pnl, 2)}
+        {formatSignedQuoteAmount(pnl)}
       </motion.div>
     </motion.div>
   );

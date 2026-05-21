@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import type { TimelineEvent } from "../../lib/types";
-import { fmtUSD } from "../../lib/format";
+import { formatTradePnl } from "../../lib/tradeLabels";
 
 export const GIF_LOOP_MS = 4200;
 export const WIN_BURST_EXIT_MS = 250;
@@ -47,7 +47,7 @@ export default function WinBurst({ ev }: { ev: TimelineEvent }) {
         exit={{ opacity: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
       >
-        {fmtUSD(ev.pnl ?? 0, 2)}
+        {formatTradePnl(ev)}
       </motion.div>
     </motion.div>
   );

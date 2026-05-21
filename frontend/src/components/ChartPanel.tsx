@@ -5,6 +5,7 @@ import {
 } from "lightweight-charts";
 import { useDash } from "../lib/store";
 import type { Candle, TimelineEvent } from "../lib/types";
+import { tradeMarkerText } from "../lib/tradeLabels";
 
 const BG = "#05070d";
 const GRID = "#111827";
@@ -12,7 +13,6 @@ const UP = "#34d399";
 const DOWN = "#f87171";
 const WICK = "#64748b";
 const AVG_LINE = "#a78bfa";
-const LIVE_CLOSE_LINE = "#60a5fa";
 const ZOOM_TOGGLE_MS = 30_000;
 const ZOOM_SEQUENCE = ["default", "zoomed", "twoday"] as const;
 
@@ -32,7 +32,7 @@ function fillToMarker(ev: TimelineEvent): SeriesMarker<Time> | null {
       position: "belowBar",
       color: UP,
       shape: "arrowUp",
-      text: `+${ev.qty?.toFixed(2) ?? ""}`,
+      text: tradeMarkerText(ev),
     };
   }
   const color = ev.win_loss === "win" ? UP : ev.win_loss === "loss" ? DOWN : "#a3a3a3";
@@ -41,57 +41,31 @@ function fillToMarker(ev: TimelineEvent): SeriesMarker<Time> | null {
     position: "aboveBar",
     color,
     shape: "arrowDown",
-    text: ev.pnl != null ? (ev.pnl >= 0 ? `+$${ev.pnl.toFixed(2)}` : `-$${Math.abs(ev.pnl).toFixed(2)}`) : "",
+    text: tradeMarkerText(ev),
   };
 }
 
 function computeTradeFocusedRanges(
   candles: Candle[],
-  markers: SeriesMarker<Time>[],
 ): { defaultRange: VisibleRange; zoomedRange: VisibleRange; twoDayRange: VisibleRange } | null {
   if (candles.length === 0) return null;
 
-  const MIN_SPAN_SECONDS = 90 * 60;
-  const MAX_SPAN_SECONDS = 12 * 60 * 60;
-  const PAD_FRACTION = 0.15;
-  const RECENT_CLUSTER_N = 120;
+  const ZOOMED_SPAN_SECONDS = 90 * 60;
+  const DEFAULT_SPAN_SECONDS = 6 * 60 * 60;
+  const TWO_DAY_SPAN_SECONDS = 48 * 60 * 60;
+  const RIGHT_PAD_SECONDS = 2 * 60;
 
   const firstCandle = Math.floor(candles[0].t / 1000);
   const lastCandle = Math.floor(candles[candles.length - 1].t / 1000);
-
-  const insideCandles = markers
-    .map(m => m.time as number)
-    .filter(t => t >= firstCandle && t <= lastCandle)
-    .sort((a, b) => a - b);
-  const recent = insideCandles.slice(-RECENT_CLUSTER_N);
-
-  let start: number;
-  let end: number;
-  if (recent.length > 0) {
-    const mFirst = recent[0];
-    const mLast = recent[recent.length - 1];
-    let span = Math.max(mLast - mFirst, MIN_SPAN_SECONDS);
-    span = Math.min(span, MAX_SPAN_SECONDS);
-    const pad = Math.max(span * PAD_FRACTION, 5 * 60);
-    end = Math.min(mLast + pad, lastCandle);
-    start = Math.max(end - span - pad, firstCandle);
-  } else {
-    end = lastCandle;
-    start = Math.max(lastCandle - 3 * 60 * 60, firstCandle);
-  }
-
-  const defaultSpan = Math.max(end - start, 30 * 60);
-  const zoomedSpan = Math.max(
-    Math.min(Math.floor(defaultSpan * 0.45), 90 * 60),
-    45 * 60,
-  );
-  const zoomedStart = Math.max(end - zoomedSpan, firstCandle);
-  const twoDayStart = Math.max(lastCandle - 48 * 60 * 60, firstCandle);
+  const rightEdge = lastCandle + RIGHT_PAD_SECONDS;
+  const zoomedStart = Math.max(lastCandle - ZOOMED_SPAN_SECONDS, firstCandle);
+  const defaultStart = Math.max(lastCandle - DEFAULT_SPAN_SECONDS, firstCandle);
+  const twoDayStart = Math.max(lastCandle - TWO_DAY_SPAN_SECONDS, firstCandle);
 
   return {
-    defaultRange: { from: start as Time, to: end as Time },
-    zoomedRange: { from: zoomedStart as Time, to: end as Time },
-    twoDayRange: { from: twoDayStart as Time, to: lastCandle as Time },
+    defaultRange: { from: defaultStart as Time, to: rightEdge as Time },
+    zoomedRange: { from: zoomedStart as Time, to: rightEdge as Time },
+    twoDayRange: { from: twoDayStart as Time, to: rightEdge as Time },
   };
 }
 
@@ -100,13 +74,11 @@ export default function ChartPanel() {
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const avgEntryLineRef = useRef<ReturnType<ISeriesApi<"Candlestick">["createPriceLine"]> | null>(null);
-  const liveCloseLineRef = useRef<ReturnType<ISeriesApi<"Candlestick">["createPriceLine"]> | null>(null);
   const [zoomMode, setZoomMode] = useState<ZoomMode>("default");
 
   const candles = useDash(s => s.candles);
   const timeline = useDash(s => s.timeline);
   const position = useDash(s => s.position);
-  const liveClose = candles.length > 0 ? candles[candles.length - 1].c : position.mark;
 
   const positionRef = useRef(position);
   positionRef.current = position;
@@ -121,7 +93,7 @@ export default function ChartPanel() {
     return arr;
   }, [timeline]);
 
-  const ranges = useMemo(() => computeTradeFocusedRanges(candles, markers), [candles, markers]);
+  const ranges = useMemo(() => computeTradeFocusedRanges(candles), [candles]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -139,6 +111,7 @@ export default function ChartPanel() {
       wickUpColor: WICK,
       wickDownColor: WICK,
       borderVisible: false,
+      lastValueVisible: true,
       priceLineVisible: false,
     });
     series.applyOptions({
@@ -148,7 +121,6 @@ export default function ChartPanel() {
         const pos = positionRef.current;
         const extras: number[] = [];
         if (pos.avg_entry > 0) extras.push(pos.avg_entry);
-        if (pos.mark > 0) extras.push(pos.mark);
         if (extras.length === 0) return base;
         return {
           ...base,
@@ -167,7 +139,6 @@ export default function ChartPanel() {
       chartRef.current = null;
       candleSeriesRef.current = null;
       avgEntryLineRef.current = null;
-      liveCloseLineRef.current = null;
     };
   }, []);
 
@@ -221,24 +192,7 @@ export default function ChartPanel() {
         title: "avg entry",
       });
     }
-
-    if (liveCloseLineRef.current) {
-      s.removePriceLine(liveCloseLineRef.current);
-      liveCloseLineRef.current = null;
-    }
-    if (liveClose > 0) {
-      liveCloseLineRef.current = s.createPriceLine({
-        price: liveClose,
-        color: LIVE_CLOSE_LINE,
-        lineWidth: 2,
-        lineStyle: LineStyle.Solid,
-        axisLabelVisible: true,
-        axisLabelColor: LIVE_CLOSE_LINE,
-        axisLabelTextColor: BG,
-        title: "",
-      });
-    }
-  }, [position.avg_entry, position.size, liveClose]);
+  }, [position.avg_entry, position.size]);
 
   return (
     <div className="pane relative overflow-hidden h-full flex flex-col">
@@ -264,7 +218,6 @@ export default function ChartPanel() {
           <LegendDot color={UP} label="entry" />
           <LegendDot color={DOWN} label="close" />
           <LegendDot color={AVG_LINE} label="avg entry" dashed />
-          <LegendDot color={LIVE_CLOSE_LINE} label="live close" />
         </div>
       </div>
       <div ref={containerRef} className="flex-1 min-h-0" />
