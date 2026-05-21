@@ -2,7 +2,7 @@
 
 Examples:
     python -m app.tools.starting_capital show
-    python -m app.tools.starting_capital set 651.86 --note "manual account start"
+    python -m app.tools.starting_capital set <starting-capital-usdc> --note "manual account start"
     python -m app.tools.starting_capital clear
     python -m app.tools.starting_capital discover
 """

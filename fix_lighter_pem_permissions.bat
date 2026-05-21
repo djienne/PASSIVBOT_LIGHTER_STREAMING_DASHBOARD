@@ -43,7 +43,7 @@ icacls "%KEY_PATH%"
 
 echo.
 echo Test with:
-echo   ssh -i "%KEY_PATH%" -o IdentitiesOnly=yes ubuntu@54.95.246.213
+echo   ssh -i "%KEY_PATH%" -o IdentitiesOnly=yes ubuntu@^<your-vps-host^>
 
 echo.
 pause

@@ -16,8 +16,8 @@ The repo contains a FastAPI backend, a React frontend, and an OBS-friendly `/str
 ## Current dashboard features
 
 - Top strip with realized, latent, and total PnL, return vs baseline, Sharpe, max drawdown, trading uptime, win rate, and CAGR.
-- Cumulative PnL panel with absolute dollars, percent-of-baseline overlay, and grouped buy/sell markers.
-- Live `HYPE` 1m chart with auto-zoom cycling, fill markers, avg-entry line, and live-close line.
+- Realized PnL panel with a single USDC curve, percent return summary, and entry/close markers.
+- Live `HYPE` 1m chart with auto-zoom cycling, fill markers, avg-entry line, and live candle updates.
 - Position panel with size, notional, avg entry, mark, unrealized PnL, and exposure.
 - Orders panel with aggregate opens / DCAs / closes, total trading volume, current funding APR, and total funding since start.
 - Action feed that groups burst fills and highlights wins, losses, buys, sells, and order events.
@@ -80,13 +80,13 @@ By default the API starts even if SSH is temporarily unreachable, and the collec
 
 If the remote Passivbot process is not running yet, the dashboard still serves normally. It will show live Lighter market data but no fill-derived bot state until the remote cache and health log files appear.
 
-Set the fixed dashboard starting capital once after the container is running. The current HYPE/Lighter account value is `651.86 USDC`, inferred from remote Lighter collateral `652.238526` minus realized PnL `0.378526`:
+Set the fixed dashboard starting capital once after the container is running. Use a trusted account snapshot or your own accounting source, then store that value manually:
 
 ```bash
-docker compose exec dashboard python -m app.tools.starting_capital set 651.86 --note "remote Lighter collateral 652.238526 - realized PnL 0.378526"
+docker compose exec dashboard python -m app.tools.starting_capital set <starting-capital-usdc> --note "manual starting capital"
 ```
 
-This value is stored in the persistent SQLite volume and is not refreshed automatically from live balance changes or remote bot restarts. To inspect it later, run:
+This value is stored in the persistent SQLite volume and is not refreshed automatically from live balance changes or remote bot restarts. If no manual value has been stored yet, the app falls back to the generic configured placeholder. To inspect the current stored/effective value, run:
 
 ```bash
 docker compose exec dashboard python -m app.tools.starting_capital show

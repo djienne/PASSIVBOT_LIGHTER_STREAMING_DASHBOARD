@@ -101,9 +101,9 @@ export const useDash = create<DashState>((set) => ({
   serverTimeOffsetMs: 0,
   symbol: "HYPE",
   marketId: 24,
-  startingCapital: 651.86,
+  startingCapital: 1000.0,
   startingCapitalSource: null,
-  baseline: 651.86,
+  baseline: 1000.0,
 
   candles: [],
   candlesDirty: 0,

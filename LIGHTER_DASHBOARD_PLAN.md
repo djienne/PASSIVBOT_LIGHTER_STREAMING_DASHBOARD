@@ -1,5 +1,10 @@
 # Lighter Trading Bot Visualization Plan
 
+> Historical note: this document captures the original planning pass. The
+> current implementation has Docker packaging, manual starting-capital storage,
+> live Lighter market data, and a production FastAPI-served frontend. Treat
+> `README.md` as the current operator guide.
+
 ## Goal
 
 Build a polished browser dashboard for the live Lighter bot trading `HYPE`, suitable for local testing now and later for 24/7 display on a dedicated streaming PC.
@@ -13,16 +18,17 @@ The dashboard should show:
 - Visual animations for opens and closes, with different behavior for wins and losses.
 - A broadcast-friendly, aesthetically pleasing interface.
 
-Assumption for all return calculations:
+Current return-calculation policy:
 
-- Starting capital: `800 USDC`
+- Starting capital is a fixed value stored manually through the dashboard CLI.
+- Public defaults are placeholders; the real value should not be committed.
 
 ## Scope Assumptions
 
 - The dashboard is for one symbol only: `HYPE`.
 - Multi-symbol support is not a goal for this project.
-- `800 USDC` is a display baseline for returns and headline metrics.
-- The display baseline is close to reality but should not be treated as an exact audited equity baseline.
+- Starting capital is the display baseline for returns and headline metrics.
+- The display baseline should be treated as operator-provided accounting context, not an audited exchange balance.
 - The action history side panel should show newest events first.
 - The side panel should retain roughly the last `10` events by default.
 
@@ -89,7 +95,7 @@ VPS cache files + optional bot heartbeat
 ### 3. Performance metrics
 
 - Total PnL in `$`.
-- Total PnL in `%` of `800 USDC`.
+- Total PnL in `%` of manually stored starting capital.
 - Sharpe ratio.
 - Max drawdown.
 - Days since last trade.
@@ -102,7 +108,7 @@ VPS cache files + optional bot heartbeat
 
 ### 3A. Metric definitions and data policy
 
-- Headline return `%` should be computed against the fixed `800 USDC` display baseline.
+- Headline return `%` should be computed against the fixed manually stored starting capital.
 - The dashboard should show realized and unrealized PnL separately whenever possible, plus a combined live total.
 - Max drawdown should be based on mark-to-market equity, not realized PnL alone.
 - Mark-to-market equity should be defined as:
@@ -422,12 +428,9 @@ Metrics to implement:
 
 Special CAGR rule:
 
-- If total history is less than 365 days:
-  - show projected CAGR from inception
-- If total history is at least 365 days:
-  - compute realized trailing 1-year CAGR
-  - compute current projected CAGR
-  - show blended CAGR as the average of the two
+- Show projected CAGR from the first fill using fractional days.
+- The label should communicate that it is projected/annualized, not realized.
+- Extremely large early-period projections should be capped in the UI.
 
 Important implementation detail:
 
@@ -487,7 +490,7 @@ Recommended layout:
   - max drawdown
   - days since last trade
   - days since first trade
-  - blended/projected CAGR
+  - projected CAGR
 - Center:
   - large candlestick chart
 - Side panels:

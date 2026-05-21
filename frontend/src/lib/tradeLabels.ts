@@ -95,6 +95,10 @@ export function tradeFeedTitle(ev: TradeLike): string {
 }
 
 export function tradeMarkerText(ev: TradeLike): string {
+  return tradeMarkerLines(ev).join(" / ");
+}
+
+export function tradeMarkerLines(ev: TradeLike): string[] {
   const action = tradeAction(ev);
   const qty = formatTradeQty(ev);
   const signedQty = formatTradeQty(ev, true);
@@ -102,16 +106,16 @@ export function tradeMarkerText(ev: TradeLike): string {
 
   switch (action) {
     case "entry":
-      return qty ? `ENTRY ${qty}` : "ENTRY";
+      return [qty ? `ENTRY ${qty}` : "ENTRY"];
     case "dca":
-      return signedQty ? `DCA ${signedQty}` : "DCA";
+      return [signedQty ? `DCA ${signedQty}` : "DCA"];
     case "partial_exit":
-      return [qty ? `PART EXIT ${qty}` : "PART EXIT", pnl].filter(Boolean).join(" / ");
+      return [qty ? `PART EXIT ${qty}` : "PART EXIT", pnl].filter((line): line is string => Boolean(line));
     case "full_exit":
-      return [qty ? `CLOSED ${qty}` : "CLOSED", pnl].filter(Boolean).join(" / ");
+      return [qty ? `CLOSED ${qty}` : "CLOSED", pnl].filter((line): line is string => Boolean(line));
     case "exit_unknown":
-      return [qty ? `EXIT ${qty}` : "EXIT", pnl].filter(Boolean).join(" / ");
+      return [qty ? `EXIT ${qty}` : "EXIT", pnl].filter((line): line is string => Boolean(line));
     default:
-      return ev.label;
+      return [ev.label];
   }
 }

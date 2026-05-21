@@ -42,10 +42,10 @@ async def test_starting_capital_fallback_then_manual_override(tmp_db, monkeypatc
     assert fallback.source == "config_fallback"
 
     async with repos.transaction():
-        await repos.set_starting_capital(651.86, note="manual")
+        await repos.set_starting_capital(1234.56, note="manual")
 
     stored = await repos.resolve_starting_capital()
-    assert stored.value == pytest.approx(651.86)
+    assert stored.value == pytest.approx(1234.56)
     assert stored.source == "manual"
     assert stored.note == "manual"
 
@@ -61,19 +61,19 @@ async def test_invalid_starting_capital_rejected(tmp_db):
 @pytest.mark.asyncio
 async def test_historical_curve_uses_current_starting_capital_not_old_snapshot_baseline(tmp_db):
     async with repos.transaction():
-        await repos.set_starting_capital(651.86, note="manual")
+        await repos.set_starting_capital(1234.56, note="manual")
         await repos.save_metrics(_metric_snap(1_000, 0.0))
         await repos.save_metrics(_metric_snap(2_000, 10.0))
 
     curve = await repos.historical_equity_curve()
     assert [ts for ts, _ in curve] == [2_000]
-    assert curve[0][1] == pytest.approx(661.86)
+    assert curve[0][1] == pytest.approx(1244.56)
 
 
 @pytest.mark.asyncio
 async def test_bootstrap_and_pnl_curve_return_resolved_starting_capital(tmp_db):
     async with repos.transaction():
-        await repos.set_starting_capital(651.86, note="remote Lighter collateral 652.238526 - realized PnL 0.378526")
+        await repos.set_starting_capital(1234.56, note="manual")
         fill = FillEvent(
             event_id="sell-1",
             ts=1_700_000_000_000,
@@ -81,21 +81,21 @@ async def test_bootstrap_and_pnl_curve_return_resolved_starting_capital(tmp_db):
             side="sell",
             qty=0.5,
             price=59.66,
-            pnl=0.378526,
+            pnl=12.34,
             position_side="flat",
         )
         await repos.insert_fill(fill, fill.model_dump())
 
     boot = await bootstrap(since=None)
-    assert boot["starting_capital"] == pytest.approx(651.86)
-    assert boot["baseline"] == pytest.approx(651.86)
+    assert boot["starting_capital"] == pytest.approx(1234.56)
+    assert boot["baseline"] == pytest.approx(1234.56)
     assert boot["starting_capital_source"]["source"] == "manual"
-    assert boot["metrics"]["baseline"] == pytest.approx(651.86)
+    assert boot["metrics"]["baseline"] == pytest.approx(1234.56)
 
     curve = await pnl_curve()
-    assert curve["starting_capital"] == pytest.approx(651.86)
-    assert curve["baseline"] == pytest.approx(651.86)
-    assert curve["points"][0]["pnl"] == pytest.approx(0.378526)
+    assert curve["starting_capital"] == pytest.approx(1234.56)
+    assert curve["baseline"] == pytest.approx(1234.56)
+    assert curve["points"][0]["pnl"] == pytest.approx(12.34)
 
 
 def test_starting_capital_cli_set_show_clear(tmp_path, monkeypatch, capsys):
@@ -107,13 +107,13 @@ def test_starting_capital_cli_set_show_clear(tmp_path, monkeypatch, capsys):
     db_mod.db.path = db_path
     db_mod.db._conn = None
 
-    assert starting_capital.main(["set", "651.86", "--note", "manual"]) == 0
-    assert '"value": 651.86' in capsys.readouterr().out
+    assert starting_capital.main(["set", "1234.56", "--note", "manual"]) == 0
+    assert '"value": 1234.56' in capsys.readouterr().out
 
     assert starting_capital.main(["show"]) == 0
     out = capsys.readouterr().out
     assert '"source": "manual"' in out
-    assert '"value": 651.86' in out
+    assert '"value": 1234.56' in out
 
     assert starting_capital.main(["clear"]) == 0
     out = capsys.readouterr().out

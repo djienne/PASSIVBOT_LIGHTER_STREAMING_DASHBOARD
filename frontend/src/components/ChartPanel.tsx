@@ -5,7 +5,7 @@ import {
 } from "lightweight-charts";
 import { useDash } from "../lib/store";
 import type { Candle, TimelineEvent } from "../lib/types";
-import { tradeMarkerText } from "../lib/tradeLabels";
+import { tradeMarkerLines, tradeMarkerText } from "../lib/tradeLabels";
 
 const BG = "#05070d";
 const GRID = "#111827";
@@ -23,26 +23,58 @@ function toCandleData(c: Candle) {
   return { time: Math.floor(c.t / 1000) as Time, open: c.o, high: c.h, low: c.l, close: c.c };
 }
 
-function fillToMarker(ev: TimelineEvent): SeriesMarker<Time> | null {
-  if (ev.category !== "trade" || !ev.price) return null;
+function fillToMarkers(ev: TimelineEvent): SeriesMarker<Time>[] {
+  if (ev.category !== "trade" || !ev.price) return [];
   const time = Math.floor(ev.ts / 1000) as Time;
   if (ev.side === "buy") {
-    return {
+    return [{
       time,
       position: "belowBar",
       color: UP,
       shape: "arrowUp",
+      id: `${ev.event_id}:entry`,
       text: tradeMarkerText(ev),
-    };
+    }];
   }
   const color = ev.win_loss === "win" ? UP : ev.win_loss === "loss" ? DOWN : "#a3a3a3";
-  return {
-    time,
-    position: "aboveBar",
-    color,
-    shape: "arrowDown",
-    text: tradeMarkerText(ev),
-  };
+  const lines = tradeMarkerLines(ev);
+  if (lines.length <= 1) {
+    return [{
+      time,
+      position: "aboveBar",
+      color,
+      shape: "arrowDown",
+      id: `${ev.event_id}:exit`,
+      text: lines[0] ?? tradeMarkerText(ev),
+    }];
+  }
+  return [
+    {
+      time,
+      position: "aboveBar",
+      color,
+      shape: "arrowDown",
+      id: `${ev.event_id}:exit-shape`,
+    },
+    ...[...lines].reverse().map((text, index) => ({
+      time,
+      position: "aboveBar" as const,
+      color,
+      shape: "circle" as const,
+      size: 0,
+      id: `${ev.event_id}:exit-line-${index}`,
+      text,
+    })),
+  ];
+}
+
+function timelineToMarkers(timeline: TimelineEvent[]): SeriesMarker<Time>[] {
+  const markers: SeriesMarker<Time>[] = [];
+  for (const ev of timeline) {
+    markers.push(...fillToMarkers(ev));
+  }
+  markers.sort((a, b) => (a.time as number) - (b.time as number));
+  return markers;
 }
 
 function computeTradeFocusedRanges(
@@ -83,15 +115,7 @@ export default function ChartPanel() {
   const positionRef = useRef(position);
   positionRef.current = position;
 
-  const markers = useMemo<SeriesMarker<Time>[]>(() => {
-    const arr: SeriesMarker<Time>[] = [];
-    for (const ev of timeline) {
-      const m = fillToMarker(ev);
-      if (m) arr.push(m);
-    }
-    arr.sort((a, b) => (a.time as number) - (b.time as number));
-    return arr;
-  }, [timeline]);
+  const markers = useMemo<SeriesMarker<Time>[]>(() => timelineToMarkers(timeline), [timeline]);
 
   const ranges = useMemo(() => computeTradeFocusedRanges(candles), [candles]);
 

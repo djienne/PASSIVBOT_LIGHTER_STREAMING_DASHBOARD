@@ -258,7 +258,7 @@ def _fallback_starting_capital() -> StartingCapitalState:
     for value, source in (
         (settings.starting_capital_fallback, "config_fallback"),
         (settings.display_baseline, "display_baseline_fallback"),
-        (651.86, "code_fallback"),
+        (1000.0, "code_fallback"),
     ):
         try:
             parsed = validate_starting_capital(value)
