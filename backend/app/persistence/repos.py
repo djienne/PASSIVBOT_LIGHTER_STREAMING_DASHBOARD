@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 from typing import Any
 
+from ..config import settings
+from ..envelope import now_ms
 from ..models import (
     BalanceSnapshot,
     Candle,
@@ -21,6 +24,8 @@ from ..models import (
     MetricsSnapshot,
     OrderAggregate,
     PositionSnapshot,
+    StartingCapitalState,
+    StartingCapitalSource,
     TimelineEvent,
     VpsLatencySnapshot,
 )
@@ -42,6 +47,12 @@ async def transaction() -> AsyncIterator[None]:
             await db.conn.commit()
 
 
+@asynccontextmanager
+async def consistent_read() -> AsyncIterator[None]:
+    async with _write_lock:
+        yield
+
+
 async def next_cursor() -> int:
     async with db.conn.execute(
         "UPDATE cursor_state SET value = value + 1 WHERE id = 1 RETURNING value"
@@ -54,6 +65,19 @@ async def current_cursor() -> int:
     async with db.conn.execute("SELECT value FROM cursor_state WHERE id = 1") as cur:
         row = await cur.fetchone()
         return int(row[0]) if row else 0
+
+
+async def _latest_timeline_cursor_unlocked() -> int:
+    async with db.conn.execute("SELECT COALESCE(MAX(cursor), 0) FROM timeline_events") as cur:
+        row = await cur.fetchone()
+        return int(row[0]) if row else 0
+
+
+async def latest_timeline_cursor(*, lock: bool = True) -> int:
+    if lock:
+        async with _write_lock:
+            return await _latest_timeline_cursor_unlocked()
+    return await _latest_timeline_cursor_unlocked()
 
 
 async def upsert_candle(c: Candle) -> None:
@@ -158,6 +182,17 @@ async def timeline_since(cursor: int, limit: int = 500) -> list[tuple[int, Timel
     return out
 
 
+async def timeline_delta_since(
+    cursor: int,
+    limit: int = 500,
+) -> tuple[int, int, bool, list[tuple[int, TimelineEvent]]]:
+    async with _write_lock:
+        rows = await timeline_since(cursor, limit=limit)
+        delivered_cursor = rows[-1][0] if rows else cursor
+        server_cursor = await _latest_timeline_cursor_unlocked()
+        return delivered_cursor, server_cursor, delivered_cursor < server_cursor, rows
+
+
 async def upsert_position(p: PositionSnapshot) -> None:
     await db.conn.execute(
         "INSERT OR REPLACE INTO positions (snapshot_ts, side, size, avg_entry, source) VALUES (?, ?, ?, ?, ?)",
@@ -190,6 +225,86 @@ async def latest_balance() -> BalanceSnapshot | None:
     ) as cur:
         row = await cur.fetchone()
     return BalanceSnapshot(snapshot_ts=row[0], balance=row[1], source=row[2]) if row else None
+
+
+def validate_starting_capital(value: float) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise ValueError("starting capital must be a finite positive number")
+    return parsed
+
+
+def _fallback_starting_capital() -> StartingCapitalState:
+    for value, source in (
+        (settings.starting_capital_fallback, "config_fallback"),
+        (settings.display_baseline, "display_baseline_fallback"),
+        (651.86, "code_fallback"),
+    ):
+        try:
+            parsed = validate_starting_capital(value)
+        except (TypeError, ValueError):
+            continue
+        return StartingCapitalState(
+            value=parsed,
+            source=source,  # type: ignore[arg-type]
+            updated_ts=None,
+            note=None,
+        )
+    raise ValueError("no valid starting capital fallback configured")
+
+
+async def get_starting_capital_state() -> StartingCapitalState | None:
+    async with db.conn.execute(
+        "SELECT value, source, updated_ts, note FROM starting_capital_state WHERE id = 1"
+    ) as cur:
+        row = await cur.fetchone()
+    if not row:
+        return None
+    return StartingCapitalState(
+        value=float(row[0]),
+        source=row[1],
+        updated_ts=row[2],
+        note=row[3],
+    )
+
+
+async def resolve_starting_capital() -> StartingCapitalState:
+    stored = await get_starting_capital_state()
+    if stored is not None:
+        return stored
+    return _fallback_starting_capital()
+
+
+async def set_starting_capital(
+    value: float,
+    *,
+    source: StartingCapitalSource = "manual",
+    note: str | None = None,
+) -> StartingCapitalState:
+    parsed = validate_starting_capital(value)
+    state = StartingCapitalState(
+        value=parsed,
+        source=source,
+        updated_ts=now_ms(),
+        note=note,
+    )
+    await db.conn.execute(
+        """
+        INSERT INTO starting_capital_state (id, value, source, updated_ts, note)
+        VALUES (1, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            value=excluded.value,
+            source=excluded.source,
+            updated_ts=excluded.updated_ts,
+            note=excluded.note
+        """,
+        (state.value, state.source, state.updated_ts, state.note),
+    )
+    return state
+
+
+async def clear_starting_capital() -> None:
+    await db.conn.execute("DELETE FROM starting_capital_state WHERE id = 1")
 
 
 async def upsert_order_aggregate(o: OrderAggregate) -> None:
@@ -226,7 +341,7 @@ async def latest_metrics() -> MetricsSnapshot | None:
     return MetricsSnapshot.model_validate_json(row[0]) if row else None
 
 
-async def historical_equity_curve() -> list[tuple[int, float]]:
+async def historical_equity_curve(baseline: float | None = None) -> list[tuple[int, float]]:
     """Sampled equity history from previously saved metrics snapshots.
 
     Drops cold-start phantoms: samples where `realized_pnl == 0` while a
@@ -258,7 +373,9 @@ async def historical_equity_curve() -> list[tuple[int, float]]:
             continue
         filtered.append((ts, s))
 
-    return [(ts, s.baseline + s.total_pnl) for ts, s in filtered]
+    if baseline is None:
+        baseline = (await resolve_starting_capital()).value
+    return [(ts, baseline + s.total_pnl) for ts, s in filtered]
 
 
 async def save_health(h: HealthSnapshot) -> None:

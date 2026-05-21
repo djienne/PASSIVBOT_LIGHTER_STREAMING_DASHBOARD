@@ -38,6 +38,14 @@ CREATE TABLE IF NOT EXISTS balances (
     source      TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS starting_capital_state (
+    id         INTEGER PRIMARY KEY CHECK (id = 1),
+    value      REAL NOT NULL,
+    source     TEXT NOT NULL,
+    updated_ts INTEGER,
+    note       TEXT
+);
+
 CREATE TABLE IF NOT EXISTS order_aggregates (
     snapshot_ts       INTEGER PRIMARY KEY,
     orders_placed     INTEGER NOT NULL,

@@ -4,9 +4,12 @@ The second run must be a no-op (idempotency).
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from app.collector.cache_poller import CachePoller
+from app.collector.log_tail import HealthLogTail
 from app.collector.vps_latency import VpsLatencyProbe
 from app.collector.ssh_client import FakeSSHClient
 from app.api.routes_http import bootstrap
@@ -39,6 +42,22 @@ class MutableCacheTransport:
 
     async def run_command(self, cmd: str) -> bytes:  # noqa: ARG002
         return b""
+
+
+class HealthTransport:
+    def __init__(self, raw: bytes) -> None:
+        self.raw = raw
+
+    async def health_lines(self, remote_path: str) -> bytes:  # noqa: ARG002
+        return self.raw
+
+
+HEALTH_LINE = (
+    b"2026-04-19T15:41:31 INFO     [lighter] [health] "
+    b"uptime=4.0d17.0h16.0m | positions=1 long, 0 short | balance=847.43 USDC "
+    b"| orders_placed=45 | orders_cancelled=23 | fills=0 | errors=0 "
+    b"| ws_reconnects=0 | rate_limits=0"
+)
 
 
 @pytest.mark.asyncio
@@ -173,6 +192,66 @@ async def test_bootstrap_delta_paginates_without_skipping_cursor(tmp_db):
     assert second["cursor"] == 501
     assert second["server_cursor"] == 501
     assert second["has_more"] is False
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_delta_empty_response_does_not_expose_allocator_cursor(tmp_db):
+    async with repos.transaction():
+        assert await repos.next_cursor() == 1
+
+    delta = await bootstrap(since=0)
+    assert delta["timeline"] == []
+    assert delta["cursor"] == 0
+    assert delta["server_cursor"] == 0
+    assert delta["has_more"] is False
+
+    full = await bootstrap(since=None)
+    assert full["cursor"] == 0
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_delta_waits_for_open_write_transaction(tmp_db):
+    async with repos.transaction():
+        cursor = await repos.next_cursor()
+        pending_delta = asyncio.create_task(bootstrap(since=0))
+        await asyncio.sleep(0.05)
+        assert not pending_delta.done()
+
+        await repos.insert_timeline(
+            TimelineEvent(
+                event_id="system-open-write",
+                ts=1_774_015_215_376,
+                category="system",
+                label="open write",
+                win_loss="neutral",
+                payload={},
+            ),
+            cursor,
+        )
+
+    delta = await asyncio.wait_for(pending_delta, timeout=1)
+    assert delta["cursor"] == 1
+    assert delta["server_cursor"] == 1
+    assert delta["has_more"] is False
+    assert [item["event"]["event_id"] for item in delta["timeline"]] == ["system-open-write"]
+
+
+@pytest.mark.asyncio
+async def test_health_log_tail_write_failure_retries_same_line(tmp_db, monkeypatch):
+    tail = HealthLogTail(HealthTransport(HEALTH_LINE))
+    original_save_health = repos.save_health
+
+    async def fail_save_health(*args, **kwargs):  # noqa: ANN002, ANN003
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(repos, "save_health", fail_save_health)
+    assert await tail.poll_once() == 0
+    assert await repos.latest_health() is None
+
+    monkeypatch.setattr(repos, "save_health", original_save_health)
+    assert await tail.poll_once() == 1
+    assert await repos.latest_health() is not None
+    assert await tail.poll_once() == 0
 
 
 @pytest.mark.asyncio

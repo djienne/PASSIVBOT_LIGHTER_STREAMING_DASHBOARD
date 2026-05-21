@@ -14,6 +14,13 @@ Side = Literal["buy", "sell"]
 PositionSide = Literal["long", "short", "flat"]
 TimelineCategory = Literal["trade", "order", "position", "system"]
 WinLoss = Literal["win", "loss", "neutral"]
+StartingCapitalSource = Literal[
+    "manual",
+    "config_fallback",
+    "display_baseline_fallback",
+    "code_fallback",
+    "migration",
+]
 
 
 class Candle(BaseModel):
@@ -60,6 +67,13 @@ class BalanceSnapshot(BaseModel):
     snapshot_ts: int
     balance: float
     source: Literal["health"] = "health"
+
+
+class StartingCapitalState(BaseModel):
+    value: float
+    source: StartingCapitalSource
+    updated_ts: int | None = None
+    note: str | None = None
 
 
 class MetricsSnapshot(BaseModel):

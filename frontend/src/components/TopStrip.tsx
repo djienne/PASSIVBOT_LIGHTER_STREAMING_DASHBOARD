@@ -29,6 +29,12 @@ function MetricCard(props: {
   );
 }
 
+function fmtCagr(n: number): string {
+  if (!isFinite(n)) return "—";
+  if (n > 10_000) return ">10000%";
+  return fmtPct(n);
+}
+
 export default function TopStrip() {
   const metrics = useDash(s => s.metrics);
   const symbol = useDash(s => s.symbol);
@@ -121,8 +127,8 @@ export default function TopStrip() {
         tone={metrics.win_rate > 50 ? "pos" : metrics.win_rate > 0 ? "neutral" : "neg"}
       />
       <MetricCard
-        label={`cagr (${metrics.cagr_label})`}
-        value={fmtPct(metrics.cagr)}
+        label={`${metrics.cagr_label} cagr`}
+        value={fmtCagr(metrics.cagr)}
         sub="annualized"
         tone={polarity(metrics.cagr) === "pos" ? "pos" : polarity(metrics.cagr) === "neg" ? "neg" : "neutral"}
       />

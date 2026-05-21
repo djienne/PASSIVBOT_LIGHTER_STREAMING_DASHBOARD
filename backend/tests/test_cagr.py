@@ -28,12 +28,18 @@ def test_zero_period():
 def test_first_hour_positive_return_is_clamped_not_overflowing():
     r = compute_cagr(total_return_pct=10, period_days=1 / 24, last_year_return_pct=None)
     assert r.label == "projected"
-    assert 0 < r.cagr <= 1_000_000
+    assert r.cagr == 1_000_000
 
 
 def test_first_hour_loss_is_finite():
     r = compute_cagr(total_return_pct=-10, period_days=1 / 24, last_year_return_pct=None)
-    assert -100 < r.cagr < 0
+    assert r.cagr == pytest.approx(-100.0)
+
+
+def test_projected_cagr_uses_actual_period_without_minimum_window():
+    r = compute_cagr(total_return_pct=1, period_days=1, last_year_return_pct=None)
+    expected = ((1.01 ** 365.25) - 1) * 100
+    assert r.cagr == pytest.approx(expected)
 
 
 def test_negative_full_loss_caps_at_minus_100():

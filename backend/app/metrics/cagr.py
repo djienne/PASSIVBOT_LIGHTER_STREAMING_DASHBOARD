@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 YEAR_DAYS = 365.25
-MIN_PROJECTED_CAGR_DAYS = 7.0
 MAX_CAGR_PCT = 1_000_000.0
 
 
@@ -23,9 +22,8 @@ def _projected_cagr(total_return_pct: float, period_days: float) -> float:
     growth = 1 + (total_return_pct / 100.0)
     if growth <= 0:
         return -100.0
-    safe_period_days = max(period_days, MIN_PROJECTED_CAGR_DAYS)
     try:
-        projected = (growth ** (YEAR_DAYS / safe_period_days) - 1) * 100
+        projected = (growth ** (YEAR_DAYS / period_days) - 1) * 100
     except OverflowError:
         return MAX_CAGR_PCT
     return min(projected, MAX_CAGR_PCT)

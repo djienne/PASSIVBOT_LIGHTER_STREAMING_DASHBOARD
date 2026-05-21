@@ -80,6 +80,18 @@ By default the API starts even if SSH is temporarily unreachable, and the collec
 
 If the remote Passivbot process is not running yet, the dashboard still serves normally. It will show live Lighter market data but no fill-derived bot state until the remote cache and health log files appear.
 
+Set the fixed dashboard starting capital once after the container is running. The current HYPE/Lighter account value is `651.86 USDC`, inferred from remote Lighter collateral `652.238526` minus realized PnL `0.378526`:
+
+```bash
+docker compose exec dashboard python -m app.tools.starting_capital set 651.86 --note "remote Lighter collateral 652.238526 - realized PnL 0.378526"
+```
+
+This value is stored in the persistent SQLite volume and is not refreshed automatically from live balance changes or remote bot restarts. To inspect it later, run:
+
+```bash
+docker compose exec dashboard python -m app.tools.starting_capital show
+```
+
 ### Remote bot running in Docker
 
 The expected bot root is:

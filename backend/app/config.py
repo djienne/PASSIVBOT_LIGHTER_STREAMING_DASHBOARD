@@ -43,7 +43,9 @@ class Settings(BaseSettings):
     # Dashboard
     symbol: str = "HYPE"
     market_id: int = 24
-    display_baseline: float = 800.0
+    starting_capital_fallback: float = 651.86
+    # Deprecated compatibility name. Use STARTING_CAPITAL_FALLBACK for new setups.
+    display_baseline: float = 651.86
 
     # Collector cadence
     poll_interval_seconds: float = 3.0

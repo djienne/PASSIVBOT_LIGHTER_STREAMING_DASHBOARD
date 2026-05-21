@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type {
   BalanceSnapshot, Bootstrap, BootstrapDelta, Candle, Envelope, FillEvent,
   FundingSnapshot, FundingTotal, HealthSnapshot, MetricsSnapshot, OrderAggregate, PositionView, TimelineEvent,
-  VpsLatencySnapshot,
+  StartingCapitalSource, VpsLatencySnapshot,
 } from "./types";
 
 export interface DashState {
@@ -11,6 +11,8 @@ export interface DashState {
   serverTimeOffsetMs: number;
   symbol: string;
   marketId: number;
+  startingCapital: number;
+  startingCapitalSource: StartingCapitalSource | null;
   baseline: number;
 
   candles: Candle[];
@@ -99,7 +101,9 @@ export const useDash = create<DashState>((set) => ({
   serverTimeOffsetMs: 0,
   symbol: "HYPE",
   marketId: 24,
-  baseline: 800,
+  startingCapital: 651.86,
+  startingCapitalSource: null,
+  baseline: 651.86,
 
   candles: [],
   candlesDirty: 0,
@@ -121,26 +125,31 @@ export const useDash = create<DashState>((set) => ({
 
   debugTrigger: null,
 
-  applyBootstrap: (b) => set(() => ({
-    schemaVersion: b.schema_version,
-    cursor: b.cursor,
-    serverTimeOffsetMs: b.server_time - Date.now(),
-    symbol: b.symbol,
-    marketId: b.market_id,
-    baseline: b.baseline,
-    candles: b.candles,
-    candlesDirty: Date.now(),
-    position: b.position,
-    balance: b.balance,
-    orderAggregate: b.order_aggregate,
-    funding: b.funding,
-    fundingTotal: b.funding_total,
-    metrics: b.metrics,
-    timeline: b.timeline,
-    health: b.health,
-    marketWsConnected: b.market_ws_connected ?? b.health?.ws_connected ?? null,
-    vpsLatency: b.vps_latency,
-  })),
+  applyBootstrap: (b) => set(() => {
+    const startingCapital = b.starting_capital ?? b.baseline;
+    return {
+      schemaVersion: b.schema_version,
+      cursor: b.cursor,
+      serverTimeOffsetMs: b.server_time - Date.now(),
+      symbol: b.symbol,
+      marketId: b.market_id,
+      startingCapital,
+      startingCapitalSource: b.starting_capital_source ?? null,
+      baseline: startingCapital,
+      candles: b.candles,
+      candlesDirty: Date.now(),
+      position: b.position,
+      balance: b.balance,
+      orderAggregate: b.order_aggregate,
+      funding: b.funding,
+      fundingTotal: b.funding_total,
+      metrics: b.metrics,
+      timeline: b.timeline,
+      health: b.health,
+      marketWsConnected: b.market_ws_connected ?? b.health?.ws_connected ?? null,
+      vpsLatency: b.vps_latency,
+    };
+  }),
 
   applyBootstrapDelta: (b) => set((state) => {
     let timeline = state.timeline;

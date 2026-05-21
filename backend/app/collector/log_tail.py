@@ -39,29 +39,42 @@ class HealthLogTail:
             log.warning("log_tail: grep failed", error=str(exc))
             return 0
 
-        count = 0
+        pending = []
         for line in out.decode(errors="replace").splitlines():
             parsed = parse_health_line(line)
             if not parsed:
                 continue
             health, balance, agg = parsed
             key = f"health:{health.ts}"
-            if not self._seen.add(key):
+            if key in self._seen:
                 continue
             health = health.model_copy(update={"vps_sync_age_ms": now_ms() - health.ts})
+            pending.append((key, health, balance, agg))
+
+        if not pending:
+            return 0
+
+        try:
             async with repos.transaction():
-                await repos.save_health(health)
-                if balance:
-                    await repos.upsert_balance(balance)
-                if agg:
-                    await repos.upsert_order_aggregate(agg)
+                for _, health, balance, agg in pending:
+                    await repos.save_health(health)
+                    if balance:
+                        await repos.upsert_balance(balance)
+                    if agg:
+                        await repos.upsert_order_aggregate(agg)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("log_tail: write failed", error=str(exc))
+            return 0
+
+        for key, health, balance, agg in pending:
+            self._seen.add(key)
             await bus.publish("health.update", health)
             if balance:
                 await bus.publish("balance.update", balance)
             if agg:
                 await bus.publish("order.update", agg)
-            count += 1
-        return count
+
+        return len(pending)
 
     async def run(self) -> None:
         log.info("log_tail: starting")

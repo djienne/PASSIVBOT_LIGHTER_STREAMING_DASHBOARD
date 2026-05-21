@@ -11,7 +11,6 @@ import asyncio
 import time
 from dataclasses import dataclass
 
-from ..config import settings
 from ..envelope import now_ms
 from ..events.bus import bus
 from ..logging import log
@@ -40,7 +39,7 @@ async def compute_snapshot() -> MetricsSnapshot:
     if fills and all(f.pnl == 0 for f in fills):
         fills = reconstruct_pnl_from_fills(fills)
 
-    baseline = settings.display_baseline
+    baseline = (await repos.resolve_starting_capital()).value
     realized = sum(f.pnl for f in fills)
 
     pos = current_position_from_fills(fills)
@@ -66,7 +65,7 @@ async def compute_snapshot() -> MetricsSnapshot:
     # samples in `metrics_snapshots`, compute drawdown from that sampled history
     # instead of only the current live point, which can recover and make the
     # displayed drawdown appear to shrink.
-    historical_curve = await repos.historical_equity_curve()
+    historical_curve = await repos.historical_equity_curve(baseline)
     if historical_curve:
         dd_curve = [pt for pt in fill_curve if pt[0] < historical_curve[0][0]]
         dd_curve.extend(historical_curve)
@@ -95,8 +94,10 @@ async def compute_snapshot() -> MetricsSnapshot:
         period_days = 0.0
         last_trade_days = 0.0
 
+    # CAGR intentionally starts at the first fill: before the first trade
+    # there is no trading period to annualize.
     cagr = compute_cagr(
-        total_return_pct=realized_return_pct,
+        total_return_pct=return_pct,
         period_days=period_days,
         last_year_return_pct=None,  # extended when history >= 1y
     )

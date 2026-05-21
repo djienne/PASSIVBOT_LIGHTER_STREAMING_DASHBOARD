@@ -48,6 +48,7 @@ export interface PnlCurveResponse {
   schema_version: number;
   server_time: number;
   baseline: number;
+  starting_capital?: number;
   points: PnlCurvePoint[];
 }
 
@@ -80,6 +81,12 @@ export interface MetricsSnapshot {
   closed_trades_count: number;
   cagr: number;
   cagr_label: "projected" | "blended";
+}
+
+export interface StartingCapitalSource {
+  source: "manual" | "config_fallback" | "display_baseline_fallback" | "code_fallback" | "migration";
+  updated_ts: number | null;
+  note: string | null;
 }
 
 export interface HealthSnapshot {
@@ -149,6 +156,8 @@ export interface Bootstrap {
   symbol: string;
   market_id: number;
   baseline: number;
+  starting_capital?: number;
+  starting_capital_source?: StartingCapitalSource | null;
   candles: Candle[];
   position: PositionView;
   balance: BalanceSnapshot | null;
