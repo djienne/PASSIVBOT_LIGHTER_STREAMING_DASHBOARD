@@ -235,7 +235,7 @@ export default function ChartPanel() {
         axisLabelVisible: true,
         axisLabelColor: LIVE_CLOSE_LINE,
         axisLabelTextColor: BG,
-        title: "live close",
+        title: "",
       });
     }
   }, [position.avg_entry, position.size, liveClose]);
