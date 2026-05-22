@@ -4,12 +4,26 @@ import { formatTradePnl } from "../../lib/tradeLabels";
 
 export const GIF_LOOP_MS = 4200;
 export const WIN_BURST_EXIT_MS = 250;
+const MACMAHON_WIN_RATE = 0.5;
 // Cleanup fires so the exit fade completes exactly at the end of loop 2 — no
 // visible third loop.
 export const WIN_BURST_MS = 2 * GIF_LOOP_MS - WIN_BURST_EXIT_MS;
 
+function normalizedHash(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 0x100000000;
+}
+
+function winningGifFor(eventId: string): string {
+  return normalizedHash(eventId) < MACMAHON_WIN_RATE ? "/macmahon.gif" : "/dicaprio.gif";
+}
+
 export default function WinBurst({ ev }: { ev: TimelineEvent }) {
-  const gifSrc = `/dicaprio.gif?t=${encodeURIComponent(ev.event_id)}`;
+  const gifSrc = `${winningGifFor(ev.event_id)}?t=${encodeURIComponent(ev.event_id)}`;
   return (
     <motion.div
       className="absolute inset-0 flex items-center justify-center"
