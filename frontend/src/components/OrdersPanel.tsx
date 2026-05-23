@@ -11,6 +11,7 @@ export default function OrdersPanel() {
   const totalVolume = metrics?.total_volume_usd ?? null;
   const opens = metrics?.opens_count ?? 0;
   const dcas = metrics?.dca_count ?? 0;
+  const partials = metrics?.partial_exit_count ?? 0;
   const closes = metrics?.closed_trades_count ?? 0;
 
   return (
@@ -22,10 +23,11 @@ export default function OrdersPanel() {
 
       {agg ? (
         <>
-          <div className="grid grid-cols-3 gap-3">
-            <Stat label="opens"  value={opens}  hint="distinct position cycles started (a buy while flat)" highlight />
-            <Stat label="DCAs"   value={dcas}   hint="follow-up buys while the bot was already long" />
-            <Stat label="closes" value={closes} hint="sell fills: partial or full closes" highlight />
+          <div className="grid grid-cols-4 gap-3">
+            <Stat label="opens"    value={opens}    hint="distinct position cycles started (a buy while flat)" highlight />
+            <Stat label="DCAs"     value={dcas}     hint="follow-up buys while the bot was already long" />
+            <Stat label="partial exits" value={partials} hint="sell fills that reduced the position but didn't close it" />
+            <Stat label="closes"   value={closes}   hint="full position closes (reduced to zero)" highlight />
           </div>
           <div className="text-xs uppercase tracking-[0.18em] text-bull font-semibold">
             Total trading fees paid: ZERO

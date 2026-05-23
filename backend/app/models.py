@@ -16,6 +16,7 @@ TimelineCategory = Literal["trade", "order", "position", "system"]
 WinLoss = Literal["win", "loss", "neutral"]
 StartingCapitalSource = Literal[
     "manual",
+    "auto_discover",
     "config_fallback",
     "display_baseline_fallback",
     "code_fallback",
@@ -98,12 +99,14 @@ class MetricsSnapshot(BaseModel):
     opens_count: int = 0
     dca_count: int = 0
     closed_trades_count: int = 0
+    partial_exit_count: int = 0
     cagr: float
     cagr_label: Literal["projected", "blended"] = "projected"
 
 
 class HealthSnapshot(BaseModel):
     ts: int
+    last_poll_ok: int | None = None
     vps_sync_age_ms: int | None
     bot_uptime_seconds: int | None
     bot_errors: int | None

@@ -97,7 +97,7 @@ async def compute_snapshot() -> MetricsSnapshot:
     # CAGR intentionally starts at the first fill: before the first trade
     # there is no trading period to annualize.
     cagr = compute_cagr(
-        total_return_pct=return_pct,
+        total_return_pct=realized_return_pct,
         period_days=period_days,
         last_year_return_pct=None,  # extended when history >= 1y
     )
@@ -112,6 +112,7 @@ async def compute_snapshot() -> MetricsSnapshot:
     opens_count = 0
     dca_count = 0
     closed_trades_count = 0
+    partial_exit_count = 0
     running_size = 0.0
     for f in sorted(fills, key=lambda x: x.ts):
         if f.side == "buy":
@@ -124,7 +125,9 @@ async def compute_snapshot() -> MetricsSnapshot:
             running_size = max(0.0, running_size - min(f.qty, running_size))
             if running_size <= 1e-9:
                 running_size = 0.0
-            closed_trades_count += 1
+                closed_trades_count += 1
+            else:
+                partial_exit_count += 1
 
     snap = MetricsSnapshot(
         ts=ts_now,
@@ -148,6 +151,7 @@ async def compute_snapshot() -> MetricsSnapshot:
         opens_count=opens_count,
         dca_count=dca_count,
         closed_trades_count=closed_trades_count,
+        partial_exit_count=partial_exit_count,
         cagr=cagr.cagr,
         cagr_label=cagr.label,
     )

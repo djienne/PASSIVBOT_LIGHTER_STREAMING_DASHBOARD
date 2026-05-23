@@ -90,6 +90,7 @@ export interface MetricsSnapshot {
   opens_count: number;
   dca_count: number;
   closed_trades_count: number;
+  partial_exit_count: number;
   cagr: number;
   cagr_label: "projected" | "blended";
 }
@@ -102,6 +103,7 @@ export interface StartingCapitalSource {
 
 export interface HealthSnapshot {
   ts: number;
+  last_poll_ok?: number | null;
   vps_sync_age_ms: number | null;
   bot_uptime_seconds: number | null;
   bot_errors: number | null;
