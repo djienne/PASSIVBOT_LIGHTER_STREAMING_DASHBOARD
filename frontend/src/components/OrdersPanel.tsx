@@ -25,7 +25,7 @@ export default function OrdersPanel() {
         <>
           <div className="grid grid-cols-4 gap-3">
             <Stat label="opens"    value={opens}    hint="distinct position cycles started (a buy while flat)" highlight />
-            <Stat label="DCAs"     value={dcas}     hint="follow-up buys while the bot was already long" />
+            <Stat label="DCA buys" value={dcas}     hint="follow-up buys while the bot was already long" />
             <Stat label="partial exits" value={partials} hint="sell fills that reduced the position but didn't close it" />
             <Stat label="closes"   value={closes}   hint="full position closes (reduced to zero)" highlight />
           </div>
