@@ -9,7 +9,7 @@ import {
   SeriesMarker,
   Time,
 } from "lightweight-charts";
-import type { AutoscaleInfoProvider } from "lightweight-charts";
+import type { AutoscaleInfoProvider, MouseEventParams } from "lightweight-charts";
 import { useDash } from "../lib/store";
 import { fetchPnlCurve } from "../lib/api";
 import { fmtPct, polarity } from "../lib/format";
@@ -30,6 +30,14 @@ const BUY_DOT = "#34d399";
 const SELL_DOT = "#f87171";
 
 type CurvePoint = { time: Time; value: number };
+type MarkerDetail = {
+  id: string;
+  ts: number;
+  label: string;
+  side?: Side | null;
+  pnl?: number | null;
+  color: string;
+};
 type CurveTrade = {
   event_id: string;
   ts: number;
@@ -76,6 +84,7 @@ function markerText(ev: CurveTrade, symbol: string): string | undefined {
 function buildCurves(tradesInput: CurveTrade[], symbol: string): {
   dollar: CurvePoint[];
   markers: SeriesMarker<Time>[];
+  markerDetails: Map<string, MarkerDetail>;
   buyCount: number;
   sellCount: number;
 } {
@@ -88,8 +97,10 @@ function buildCurves(tradesInput: CurveTrade[], symbol: string): {
     .sort((a, b) => a.ts - b.ts);
   const dollar: CurvePoint[] = [];
   const markers: SeriesMarker<Time>[] = [];
+  const markerDetails = new Map<string, MarkerDetail>();
   let cum = 0;
   let lastBucket: number | null = null;
+  let lastMarkerId: string | null = null;
   let buyCount = 0;
   let sellCount = 0;
 
@@ -98,12 +109,24 @@ function buildCurves(tradesInput: CurveTrade[], symbol: string): {
     const bucket = Math.floor(ev.ts / 1000);
     const time = bucket as Time;
     const isBuy = ev.side === "buy";
+    const markerId = `pnl:${ev.event_id}`;
+    const markerColor = isBuy ? BUY_DOT : SELL_DOT;
+    const label = markerText(ev, symbol) ?? (isBuy ? "ENTRY" : ev.side === "sell" ? "CLOSED" : "TRADE");
     const marker: SeriesMarker<Time> = {
+      id: markerId,
       time,
       position: isBuy ? "belowBar" : "aboveBar",
-      color: isBuy ? BUY_DOT : SELL_DOT,
+      color: markerColor,
       shape: "circle",
-      text: markerText(ev, symbol),
+      size: 1.2,
+    };
+    const detail: MarkerDetail = {
+      id: markerId,
+      ts: ev.ts,
+      label,
+      side: ev.side,
+      pnl: ev.pnl,
+      color: markerColor,
     };
 
     if (isBuy) {
@@ -114,16 +137,21 @@ function buildCurves(tradesInput: CurveTrade[], symbol: string): {
 
     if (bucket === lastBucket) {
       dollar[dollar.length - 1] = { time, value: cum };
+      if (lastMarkerId) markerDetails.delete(lastMarkerId);
       markers[markers.length - 1] = marker;
+      markerDetails.set(markerId, detail);
+      lastMarkerId = markerId;
       continue;
     }
 
     dollar.push({ time, value: cum });
     markers.push(marker);
+    markerDetails.set(markerId, detail);
     lastBucket = bucket;
+    lastMarkerId = markerId;
   }
 
-  return { dollar, markers, buyCount, sellCount };
+  return { dollar, markers, markerDetails, buyCount, sellCount };
 }
 
 function paddedAutoscale(baseRange: { minValue: number; maxValue: number }): { minValue: number; maxValue: number } {
@@ -145,17 +173,28 @@ const pnlAutoscaleInfoProvider: AutoscaleInfoProvider = original => {
   };
 };
 
+function formatMarkerTime(ts: number): string {
+  return new Date(ts).toLocaleString(undefined, {
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function PnlCurvePanel() {
   const timeline = useDash(s => s.timeline);
   const baseline = useDash(s => s.baseline);
   const metrics = useDash(s => s.metrics);
   const symbol = useDash(s => s.symbol);
   const [history, setHistory] = useState<PnlCurvePoint[]>([]);
+  const [hoveredTrade, setHoveredTrade] = useState<MarkerDetail | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const dollarSeriesRef = useRef<ISeriesApi<"Area"> | null>(null);
   const zeroLineRef = useRef<ReturnType<ISeriesApi<"Area">["createPriceLine"]> | null>(null);
+  const markerDetailsRef = useRef<Map<string, MarkerDetail>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -229,16 +268,33 @@ export default function PnlCurvePanel() {
       title: "",
     });
 
+    const handleCrosshairMove = (param: MouseEventParams<Time>) => {
+      const markerId = typeof param.hoveredObjectId === "string" ? param.hoveredObjectId : null;
+      const next = markerId ? markerDetailsRef.current.get(markerId) ?? null : null;
+      setHoveredTrade(current => (current?.id === next?.id ? current : next));
+    };
+
+    chart.subscribeCrosshairMove(handleCrosshairMove);
+
     chartRef.current = chart;
     dollarSeriesRef.current = dollarSeries;
 
     return () => {
+      chart.unsubscribeCrosshairMove(handleCrosshairMove);
       chart.remove();
       chartRef.current = null;
       dollarSeriesRef.current = null;
       zeroLineRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    markerDetailsRef.current = curves.markerDetails;
+    setHoveredTrade(current => {
+      if (!current) return current;
+      return curves.markerDetails.has(current.id) ? current : null;
+    });
+  }, [curves.markerDetails]);
 
   useEffect(() => {
     if (!dollarSeriesRef.current) return;
@@ -253,6 +309,11 @@ export default function PnlCurvePanel() {
   const toneClass = tone === "pos" ? "text-bull" : tone === "neg" ? "text-bear" : "text-text";
   const fillCount = curves.buyCount + curves.sellCount;
   const hasClosedTrade = curves.sellCount > 0;
+  const hoveredToneClass = hoveredTrade?.side === "buy"
+    ? "text-bull"
+    : (hoveredTrade?.pnl ?? 0) < 0
+      ? "text-bear"
+      : "text-bull";
 
   return (
     <div className="pane relative overflow-hidden h-full flex flex-col">
@@ -293,6 +354,21 @@ export default function PnlCurvePanel() {
         )}
       </div>
       <div ref={containerRef} className="flex-1 min-h-0" />
+      {hoveredTrade && (
+        <div
+          className="pointer-events-none absolute bottom-4 left-4 z-10 max-w-[calc(100%-2rem)] rounded-md border bg-bg/95 px-3 py-2 shadow-lg backdrop-blur"
+          style={{ borderColor: hoveredTrade.color }}
+        >
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: hoveredTrade.color }} />
+            <span className={hoveredToneClass}>{hoveredTrade.label}</span>
+          </div>
+          <div className="mt-1 flex items-center gap-2 text-[11px] font-mono uppercase text-subtle">
+            <span>{formatMarkerTime(hoveredTrade.ts)}</span>
+            {hoveredTrade.side && <span>{hoveredTrade.side}</span>}
+          </div>
+        </div>
+      )}
       {!hasClosedTrade && (
         <div className="absolute inset-x-0 bottom-6 pointer-events-none text-center text-xs font-mono text-subtle">
           waiting for closed trade
