@@ -16,7 +16,11 @@ export default function HealthFooter() {
   }, []);
 
   const vpsAge = health?.ts != null ? (now - health.ts) / 1000 : null;
-  const stale = (vpsAge != null && vpsAge > 30 * 60) || wsStatus === "closed";
+  const pollAge = health?.last_poll_ok != null ? (now - health.last_poll_ok) / 1000 : null;
+
+  const isVpsDown = pollAge != null && pollAge > 3 * 60;
+  const isBotDown = !isVpsDown && (vpsAge != null && vpsAge > 30 * 60);
+  const stale = isVpsDown || isBotDown || wsStatus === "closed";
 
   return (
     <div className="pane px-4 py-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-mono">
@@ -38,7 +42,15 @@ export default function HealthFooter() {
           animate={{ opacity: 1 }}
           className="fixed top-0 inset-x-0 z-50 bg-warn/90 text-black px-4 py-1.5 text-center font-semibold shadow-lg"
         >
-          ⚠ data is stale — vps sync {vpsAge != null ? `${vpsAge.toFixed(0)}s ago` : "unknown"} · ws {wsStatus}
+          {wsStatus === "closed" ? (
+             `⚠ data is stale — ws ${wsStatus}`
+          ) : isVpsDown ? (
+             `⚠ data is stale — VPS unreachable (last check ${pollAge?.toFixed(0) ?? "unknown"}s ago)`
+          ) : isBotDown ? (
+             `⚠ data is stale — Bot inactive (vps up, but last health log ${vpsAge != null ? `${vpsAge.toFixed(0)}s ago` : "unknown"})`
+          ) : (
+             `⚠ data is stale`
+          )}
         </motion.div>
       )}
     </div>

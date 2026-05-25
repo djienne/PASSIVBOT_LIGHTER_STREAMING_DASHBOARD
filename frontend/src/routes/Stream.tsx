@@ -49,7 +49,7 @@ export default function Stream() {
               <img
                 src="/light_logo_full.svg"
                 alt="Lighter"
-                className="h-7 w-auto select-none opacity-90"
+                className="h-10 w-auto select-none opacity-90"
                 draggable={false}
               />
             </div>

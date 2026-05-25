@@ -29,7 +29,7 @@ export default function Dashboard() {
             <img
               src="/light_logo_full.svg"
               alt="Lighter"
-              className="h-6 w-auto select-none opacity-90"
+              className="h-9 w-auto select-none opacity-90"
               draggable={false}
             />
           </div>

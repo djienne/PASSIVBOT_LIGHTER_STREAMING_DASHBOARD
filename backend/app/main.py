@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse
 
 from .api.routes_http import router as http_router
 from .api.routes_ws import router as ws_router
+from .collector.auto_discover import auto_discover_starting_capital
 from .collector.cache_poller import CachePoller
 from .collector.funding_total import estimator as funding_total_estimator
 from .collector.log_tail import HealthLogTail
@@ -90,6 +91,9 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
             "startup: VPS_HOST is not configured; SSH collectors and VPS latency are disabled",
             vps_host=settings.vps_host,
         )
+    tasks.append(
+        asyncio.create_task(auto_discover_starting_capital(), name="auto_discover_capital")
+    )
     log.info("startup: background tasks launched", count=len(tasks))
     try:
         yield

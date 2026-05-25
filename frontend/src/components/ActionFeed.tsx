@@ -156,18 +156,18 @@ function Dot({ ev }: { ev: Pick<FeedRow, "side" | "win_loss"> }) {
 
 function TimeCell({ ts }: { ts: number }) {
   const d = new Date(ts);
-  const date = d.toLocaleDateString(undefined, { day: "2-digit", month: "short", timeZone: "UTC" });
   const time = d.toLocaleTimeString(undefined, {
     hour12: false,
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
     timeZone: "UTC",
   });
+  const date = d.toLocaleDateString(undefined, { day: "2-digit", month: "short", timeZone: "UTC" });
   return (
-    <span className="text-[11px] font-mono text-dim w-24 tabular-nums select-none leading-tight">
-      {date}
-      <br />
-      {time} UTC
+    <span className="font-mono w-24 tabular-nums select-none leading-tight flex flex-col">
+      <span className="text-xs text-text/90 font-semibold">{time}</span>
+      <span className="text-[11px] text-subtle">{date} UTC</span>
     </span>
   );
 }

@@ -6,6 +6,7 @@ import {
 import { useDash } from "../lib/store";
 import type { Candle, TimelineEvent } from "../lib/types";
 import { tradeMarkerLines, tradeMarkerText } from "../lib/tradeLabels";
+import { fmtPct, polarity } from "../lib/format";
 
 const BG = "#05070d";
 const GRID = "#111827";
@@ -101,6 +102,25 @@ function computeTradeFocusedRanges(
   };
 }
 
+function computeUtcDailyChangePct(candles: Candle[], serverTimeOffsetMs: number): number | null {
+  if (candles.length === 0) return null;
+
+  const serverNow = new Date(Date.now() + serverTimeOffsetMs);
+  const utcDayStart = Date.UTC(
+    serverNow.getUTCFullYear(),
+    serverNow.getUTCMonth(),
+    serverNow.getUTCDate(),
+  );
+  const dayOpenCandle = candles.find(c => c.t >= utcDayStart);
+  const latestCandle = candles[candles.length - 1];
+
+  if (!dayOpenCandle || !latestCandle || dayOpenCandle.o <= 0 || latestCandle.c <= 0) {
+    return null;
+  }
+
+  return ((latestCandle.c - dayOpenCandle.o) / dayOpenCandle.o) * 100;
+}
+
 export default function ChartPanel() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -111,6 +131,7 @@ export default function ChartPanel() {
   const candles = useDash(s => s.candles);
   const timeline = useDash(s => s.timeline);
   const position = useDash(s => s.position);
+  const serverTimeOffsetMs = useDash(s => s.serverTimeOffsetMs);
 
   const positionRef = useRef(position);
   positionRef.current = position;
@@ -118,6 +139,12 @@ export default function ChartPanel() {
   const markers = useMemo<SeriesMarker<Time>[]>(() => timelineToMarkers(timeline), [timeline]);
 
   const ranges = useMemo(() => computeTradeFocusedRanges(candles), [candles]);
+  const dailyChangePct = useMemo(
+    () => computeUtcDailyChangePct(candles, serverTimeOffsetMs),
+    [candles, serverTimeOffsetMs],
+  );
+  const dailyTone = polarity(dailyChangePct);
+  const dailyChipClass = dailyTone === "pos" ? "chip-bull" : dailyTone === "neg" ? "chip-bear" : "chip-neutral";
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -221,15 +248,22 @@ export default function ChartPanel() {
   return (
     <div className="pane relative overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border/70 bg-panel/80 backdrop-blur flex-none">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             <img
               src="/hype_icon.png"
               alt="HYPE"
               className="h-5 w-5 rounded-full select-none shadow-[0_0_12px_rgba(140,242,220,0.2)]"
               draggable={false}
             />
-            <span className="pane-heading">HYPE - 1m - auto zoom cycle</span>
+            <span className="pane-heading truncate">HYPE - 1m - auto zoom cycle</span>
+            <span
+              className={`${dailyChipClass} flex-none font-mono tabular-nums`}
+              title="HYPE price change since the first 1m candle of the current UTC day"
+            >
+              <span className="text-[10px] uppercase tracking-wider opacity-80">UTC day</span>
+              <span>{fmtPct(dailyChangePct)}</span>
+            </span>
           </div>
           <span className="text-subtle text-xs font-mono">
             {candles.length} candles - {markers.length} markers

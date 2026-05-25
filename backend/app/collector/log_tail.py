@@ -32,6 +32,7 @@ class HealthLogTail:
         remote = settings.debug_log_remote_path
         try:
             out = await self.t.health_lines(remote)
+            poll_ok_ts = now_ms()
         except AttributeError:
             # FakeSSH path — read fixture instead
             return 0
@@ -48,10 +49,19 @@ class HealthLogTail:
             key = f"health:{health.ts}"
             if key in self._seen:
                 continue
-            health = health.model_copy(update={"vps_sync_age_ms": now_ms() - health.ts})
+            health = health.model_copy(update={"vps_sync_age_ms": now_ms() - health.ts, "last_poll_ok": poll_ok_ts})
             pending.append((key, health, balance, agg))
 
         if not pending:
+            latest = await repos.latest_health()
+            if latest:
+                latest = latest.model_copy(update={"vps_sync_age_ms": now_ms() - latest.ts, "last_poll_ok": poll_ok_ts})
+                try:
+                    async with repos.transaction():
+                        await repos.save_health(latest)
+                    await bus.publish("health.update", latest)
+                except Exception as exc:
+                    log.warning("log_tail: refresh failed", error=str(exc))
             return 0
 
         try:
@@ -84,4 +94,4 @@ class HealthLogTail:
                 await self.poll_once()
             except Exception as exc:  # noqa: BLE001
                 log.error("log_tail: error", error=str(exc))
-            await asyncio.sleep(60)
+            await asyncio.sleep(10)
