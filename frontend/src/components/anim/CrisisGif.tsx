@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { formatSignedQuoteAmount } from "../../lib/tradeLabels";
+import { GIF_FRAME_STYLE, GIF_IMAGE_STYLE } from "./overlaySizing";
 
 // The gif itself loops every 2.2 s (22 frames @ 10 fps, measured via ffprobe).
 export const CRISIS_GIF_LOOP_MS = 2200;
@@ -26,17 +27,22 @@ export default function CrisisGif({ id, pnl }: { id: string; pnl: number }) {
           filter: "blur(4px)",
         }}
       />
-      <motion.img
-        src={gifSrc}
-        alt=""
-        className="absolute rounded-lg shadow-[0_0_32px_rgba(248,113,113,0.35)]"
+      <motion.div
+        className="absolute"
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        style={{ width: 320, height: "auto", pointerEvents: "none" }}
-        draggable={false}
-      />
+        style={GIF_FRAME_STYLE}
+      >
+        <img
+          src={gifSrc}
+          alt=""
+          className="rounded-lg shadow-[0_0_32px_rgba(248,113,113,0.35)]"
+          style={GIF_IMAGE_STYLE}
+          draggable={false}
+        />
+      </motion.div>
       <motion.div
         className="absolute text-bear font-display font-bold text-6xl tracking-tight drop-shadow-[0_0_16px_rgba(0,0,0,0.9)]"
         initial={{ y: 120, opacity: 0, scale: 0.9 }}

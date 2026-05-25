@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import type { TimelineEvent } from "../../lib/types";
 import { formatTradePnl, tradeAction } from "../../lib/tradeLabels";
+import { GIF_FRAME_STYLE, GIF_IMAGE_STYLE } from "./overlaySizing";
 
 export const WIN_BURST_EXIT_MS = 250;
 const MACMAHON_WIN_RATE = 0.5;
@@ -60,17 +61,22 @@ export default function WinBurst({ ev }: { ev: TimelineEvent }) {
           filter: "blur(4px)",
         }}
       />
-      <motion.img
-        src={gifSrc}
-        alt=""
-        className="absolute rounded-lg shadow-[0_0_32px_rgba(52,211,153,0.35)]"
+      <motion.div
+        className="absolute"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        style={{ width: isPartialExit ? 280 : 320, height: "auto", pointerEvents: "none" }}
-        draggable={false}
-      />
+        style={GIF_FRAME_STYLE}
+      >
+        <img
+          src={gifSrc}
+          alt=""
+          className="rounded-lg shadow-[0_0_32px_rgba(52,211,153,0.35)]"
+          style={GIF_IMAGE_STYLE}
+          draggable={false}
+        />
+      </motion.div>
       <motion.div
         className={`absolute text-bull font-display font-bold tracking-tight drop-shadow-[0_0_16px_rgba(0,0,0,0.9)] ${isPartialExit ? "text-5xl" : "text-6xl"}`}
         initial={{ y: 120, opacity: 0, scale: 0.9 }}

@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { GIF_FRAME_STYLE, GIF_IMAGE_STYLE } from "./overlaySizing";
 
 export const DCA_GIF_MS = 4500;
 const DCA_EXIT_MS = 250;
@@ -24,17 +25,22 @@ export default function DcaGif({ id }: { id: string }) {
           filter: "blur(5px)",
         }}
       />
-      <motion.img
-        src={gifSrc}
-        alt=""
-        className="absolute rounded-lg shadow-[0_0_38px_rgba(52,211,153,0.42)]"
+      <motion.div
+        className="absolute"
         initial={{ opacity: 0, scale: 0.9, y: 18 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: -8 }}
         transition={{ duration: 0.28, ease: "easeOut" }}
-        style={{ width: 520, height: "auto", pointerEvents: "none" }}
-        draggable={false}
-      />
+        style={GIF_FRAME_STYLE}
+      >
+        <img
+          src={gifSrc}
+          alt=""
+          className="rounded-lg shadow-[0_0_38px_rgba(52,211,153,0.42)]"
+          style={GIF_IMAGE_STYLE}
+          draggable={false}
+        />
+      </motion.div>
     </motion.div>
   );
 }
