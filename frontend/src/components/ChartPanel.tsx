@@ -16,9 +16,16 @@ const WICK = "#64748b";
 const AVG_LINE = "#a78bfa";
 const ZOOM_TOGGLE_MS = 30_000;
 const ZOOM_SEQUENCE = ["default", "zoomed", "twoday"] as const;
+const MOVEMENT_ZOOM_THRESHOLD = 0.005;
 
 type VisibleRange = { from: Time; to: Time };
 type ZoomMode = (typeof ZOOM_SEQUENCE)[number];
+type MovementTracker = {
+  candleTime: number | null;
+  startPrice: number;
+  previousClose: number | null;
+  accumulatedAbsMove: number;
+};
 
 function toCandleData(c: Candle) {
   return { time: Math.floor(c.t / 1000) as Time, open: c.o, high: c.h, low: c.l, close: c.c };
@@ -126,7 +133,14 @@ export default function ChartPanel() {
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const avgEntryLineRef = useRef<ReturnType<ISeriesApi<"Candlestick">["createPriceLine"]> | null>(null);
+  const movementTrackerRef = useRef<MovementTracker>({
+    candleTime: null,
+    startPrice: 0,
+    previousClose: null,
+    accumulatedAbsMove: 0,
+  });
   const [zoomMode, setZoomMode] = useState<ZoomMode>("default");
+  const [movementZoomActive, setMovementZoomActive] = useState(false);
 
   const candles = useDash(s => s.candles);
   const timeline = useDash(s => s.timeline);
@@ -145,6 +159,14 @@ export default function ChartPanel() {
   );
   const dailyTone = polarity(dailyChangePct);
   const dailyChipClass = dailyTone === "pos" ? "chip-bull" : dailyTone === "neg" ? "chip-bear" : "chip-neutral";
+  const effectiveZoomMode = movementZoomActive ? "zoomed" : zoomMode;
+  const zoomLabel = movementZoomActive
+    ? "live move detail"
+    : effectiveZoomMode === "zoomed"
+      ? "detail view"
+      : effectiveZoomMode === "twoday"
+        ? "2 day view"
+        : "context view";
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -209,21 +231,80 @@ export default function ChartPanel() {
   }, [markers]);
 
   useEffect(() => {
+    const latest = candles[candles.length - 1];
+    const resetTracker = () => {
+      movementTrackerRef.current = {
+        candleTime: null,
+        startPrice: 0,
+        previousClose: null,
+        accumulatedAbsMove: 0,
+      };
+      setMovementZoomActive(false);
+    };
+
+    if (
+      !latest ||
+      !Number.isFinite(latest.t) ||
+      !Number.isFinite(latest.o) ||
+      !Number.isFinite(latest.c) ||
+      latest.o <= 0 ||
+      latest.c <= 0
+    ) {
+      resetTracker();
+      return;
+    }
+
+    const tracker = movementTrackerRef.current;
+    if (tracker.candleTime !== latest.t) {
+      movementTrackerRef.current = {
+        candleTime: latest.t,
+        startPrice: latest.o,
+        previousClose: latest.c,
+        accumulatedAbsMove: 0,
+      };
+      setMovementZoomActive(false);
+      return;
+    }
+
+    if (tracker.previousClose == null) {
+      tracker.previousClose = latest.c;
+      tracker.startPrice = latest.o;
+      tracker.accumulatedAbsMove = 0;
+      setMovementZoomActive(false);
+      return;
+    }
+
+    tracker.accumulatedAbsMove += Math.abs(latest.c - tracker.previousClose);
+    tracker.previousClose = latest.c;
+    if (tracker.accumulatedAbsMove / tracker.startPrice >= MOVEMENT_ZOOM_THRESHOLD) {
+      setMovementZoomActive(true);
+    }
+  }, [candles]);
+
+  useEffect(() => {
+    if (movementZoomActive) {
+      setZoomMode("zoomed");
+    }
+  }, [movementZoomActive]);
+
+  useEffect(() => {
+    if (movementZoomActive) return;
+
     const id = window.setInterval(() => {
       setZoomMode(prev => ZOOM_SEQUENCE[(ZOOM_SEQUENCE.indexOf(prev) + 1) % ZOOM_SEQUENCE.length]);
     }, ZOOM_TOGGLE_MS);
     return () => window.clearInterval(id);
-  }, []);
+  }, [movementZoomActive]);
 
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart || !ranges) return;
     const nextRange =
-      zoomMode === "zoomed" ? ranges.zoomedRange :
-      zoomMode === "twoday" ? ranges.twoDayRange :
+      effectiveZoomMode === "zoomed" ? ranges.zoomedRange :
+      effectiveZoomMode === "twoday" ? ranges.twoDayRange :
       ranges.defaultRange;
     chart.timeScale().setVisibleRange(nextRange);
-  }, [ranges, zoomMode]);
+  }, [effectiveZoomMode, ranges]);
 
   useEffect(() => {
     const s = candleSeriesRef.current;
@@ -270,9 +351,7 @@ export default function ChartPanel() {
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs font-mono">
-          <span className="text-subtle">
-            {zoomMode === "zoomed" ? "detail view" : zoomMode === "twoday" ? "2 day view" : "context view"}
-          </span>
+          <span className="text-subtle">{zoomLabel}</span>
           <LegendDot color={UP} label="entry" />
           <LegendDot color={DOWN} label="close" />
           <LegendDot color={AVG_LINE} label="avg entry" dashed />
