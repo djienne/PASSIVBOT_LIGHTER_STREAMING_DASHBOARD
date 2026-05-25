@@ -7,6 +7,8 @@ import WinBurst, { winBurstDurationFor } from "./WinBurst";
 import LossFade from "./LossFade";
 import OrderFlash from "./OrderFlash";
 import CrisisGif, { CRISIS_GIF_LOOP_MS, CRISIS_EXIT_MS } from "./CrisisGif";
+import PositionOpenGif, { POSITION_OPEN_GIF_MS } from "./PositionOpenGif";
+import DcaGif, { DCA_GIF_MS } from "./DcaGif";
 
 const COOLDOWN_MS = 500;
 const DEFAULT_CLEANUP_MS = 2600;
@@ -17,28 +19,52 @@ const CRISIS_MAX_GAP_MS = 60_000;
 const CRISIS_GIF_MS = 5 * CRISIS_GIF_LOOP_MS - CRISIS_EXIT_MS;
 
 type Trigger =
+  | { kind: "positionOpen"; id: string; ev: TimelineEvent }
+  | { kind: "dca"; id: string; ev: TimelineEvent }
   | { kind: "entry"; id: string; ev: TimelineEvent }
   | { kind: "win"; id: string; ev: TimelineEvent }
   | { kind: "loss"; id: string; ev: TimelineEvent }
   | { kind: "order"; id: string; ev: TimelineEvent }
   | { kind: "crisis"; id: string; pnl: number };
 
+function isPositionOpen(ev: TimelineEvent): boolean {
+  const sizeBefore = ev.payload?.position_size_before;
+  const sizeAfter = ev.payload?.position_size_after;
+  return ev.payload?.trade_action === "entry" ||
+    (typeof sizeBefore === "number" && typeof sizeAfter === "number" && sizeBefore <= 0 && sizeAfter > 0);
+}
+
+function isDca(ev: TimelineEvent): boolean {
+  const sizeBefore = ev.payload?.position_size_before;
+  const sizeAfter = ev.payload?.position_size_after;
+  return ev.payload?.trade_action === "dca" ||
+    (typeof sizeBefore === "number" && typeof sizeAfter === "number" && sizeBefore > 0 && sizeAfter > sizeBefore);
+}
+
 function classify(ev: TimelineEvent): Trigger | null {
   if (ev.category === "order") return { kind: "order", id: ev.event_id, ev };
   if (ev.category !== "trade") return null;
-  if (ev.side === "buy") return { kind: "entry", id: ev.event_id, ev };
+  if (ev.side === "buy") {
+    if (isPositionOpen(ev)) return { kind: "positionOpen", id: ev.event_id, ev };
+    if (isDca(ev)) return { kind: "dca", id: ev.event_id, ev };
+    return { kind: "entry", id: ev.event_id, ev };
+  }
   if (ev.win_loss === "win") return { kind: "win", id: ev.event_id, ev };
   if (ev.win_loss === "loss") return { kind: "loss", id: ev.event_id, ev };
   return null;
 }
 
 function cooldownFor(trig: Trigger): number {
+  if (trig.kind === "positionOpen") return POSITION_OPEN_GIF_MS;
+  if (trig.kind === "dca") return DCA_GIF_MS;
   if (trig.kind === "win") return winBurstDurationFor(trig.ev);
   if (trig.kind === "crisis") return CRISIS_GIF_MS;
   return COOLDOWN_MS;
 }
 
 function cleanupFor(trig: Trigger): number {
+  if (trig.kind === "positionOpen") return POSITION_OPEN_GIF_MS;
+  if (trig.kind === "dca") return DCA_GIF_MS;
   if (trig.kind === "win") return winBurstDurationFor(trig.ev);
   if (trig.kind === "crisis") return CRISIS_GIF_MS;
   return DEFAULT_CLEANUP_MS;
@@ -118,6 +144,8 @@ export default function AnimationCoordinator() {
       <AnimatePresence>
         {active.map(tr => {
           switch (tr.kind) {
+            case "positionOpen": return <PositionOpenGif key={tr.id} id={tr.id} />;
+            case "dca": return <DcaGif key={tr.id} id={tr.id} />;
             case "entry":  return <EntryPulse key={tr.id} />;
             case "win":    return <WinBurst  key={tr.id} ev={tr.ev} />;
             case "loss":   return <LossFade  key={tr.id} ev={tr.ev} />;
