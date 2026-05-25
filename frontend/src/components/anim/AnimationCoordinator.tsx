@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useDash } from "../../lib/store";
 import type { TimelineEvent } from "../../lib/types";
 import EntryPulse from "./EntryPulse";
-import WinBurst, { WIN_BURST_MS } from "./WinBurst";
+import WinBurst, { winBurstDurationFor } from "./WinBurst";
 import LossFade from "./LossFade";
 import OrderFlash from "./OrderFlash";
 import CrisisGif, { CRISIS_GIF_LOOP_MS, CRISIS_EXIT_MS } from "./CrisisGif";
@@ -32,15 +32,15 @@ function classify(ev: TimelineEvent): Trigger | null {
   return null;
 }
 
-function cooldownFor(kind: Trigger["kind"]): number {
-  if (kind === "win") return WIN_BURST_MS;
-  if (kind === "crisis") return CRISIS_GIF_MS;
+function cooldownFor(trig: Trigger): number {
+  if (trig.kind === "win") return winBurstDurationFor(trig.ev);
+  if (trig.kind === "crisis") return CRISIS_GIF_MS;
   return COOLDOWN_MS;
 }
 
-function cleanupFor(kind: Trigger["kind"]): number {
-  if (kind === "win") return WIN_BURST_MS;
-  if (kind === "crisis") return CRISIS_GIF_MS;
+function cleanupFor(trig: Trigger): number {
+  if (trig.kind === "win") return winBurstDurationFor(trig.ev);
+  if (trig.kind === "crisis") return CRISIS_GIF_MS;
   return DEFAULT_CLEANUP_MS;
 }
 
@@ -64,12 +64,12 @@ export default function AnimationCoordinator() {
 
   const fireTrigger = (trig: Trigger) => {
     const now = Date.now();
-    if ((lastFiredRef.current[trig.kind] ?? 0) + cooldownFor(trig.kind) > now) return;
+    if ((lastFiredRef.current[trig.kind] ?? 0) + cooldownFor(trig) > now) return;
     lastFiredRef.current[trig.kind] = now;
     setActive(prev => [...prev, trig].slice(-8));
     setTimeout(() => {
       setActive(prev => prev.filter(x => x !== trig));
-    }, cleanupFor(trig.kind));
+    }, cleanupFor(trig));
   };
 
   useEffect(() => {
