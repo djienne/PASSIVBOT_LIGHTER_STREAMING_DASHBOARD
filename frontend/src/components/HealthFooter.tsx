@@ -33,6 +33,7 @@ export default function HealthFooter() {
       <Metric label="errors"      value={String(health?.bot_errors ?? "—")} />
       <Metric label="reconnects"  value={String(health?.bot_ws_reconnects ?? "—")} />
       <Metric label="rate limits" value={String(health?.bot_rate_limits ?? "—")} />
+      <Metric label="Lighter sub-account" value="281474976542303" />
       <div className="ml-auto text-subtle">
         {metrics && `equity $${(metrics.baseline + metrics.total_pnl).toFixed(2)}`}
       </div>
