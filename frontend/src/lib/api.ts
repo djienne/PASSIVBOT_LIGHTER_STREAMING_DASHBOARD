@@ -1,4 +1,4 @@
-import type { Bootstrap, BootstrapDelta, PnlCurveResponse } from "./types";
+import type { Bootstrap, BootstrapDelta, EquityCurveResponse, PnlCurveResponse } from "./types";
 
 export async function fetchBootstrap(): Promise<Bootstrap> {
   const res = await fetch("/api/bootstrap");
@@ -21,5 +21,11 @@ export async function fetchHealth(): Promise<Record<string, unknown>> {
 export async function fetchPnlCurve(): Promise<PnlCurveResponse> {
   const res = await fetch("/api/pnl-curve");
   if (!res.ok) throw new Error(`pnl curve failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchEquityCurve(): Promise<EquityCurveResponse> {
+  const res = await fetch("/api/equity-curve");
+  if (!res.ok) throw new Error(`equity curve failed: ${res.status}`);
   return res.json();
 }

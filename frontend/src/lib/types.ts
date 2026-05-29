@@ -63,6 +63,19 @@ export interface PnlCurveResponse {
   points: PnlCurvePoint[];
 }
 
+export interface EquityCurvePoint {
+  ts: number;
+  equity: number;
+  total_pnl: number;
+}
+
+export interface EquityCurveResponse {
+  schema_version: number;
+  server_time: number;
+  baseline: number;
+  points: EquityCurvePoint[];
+}
+
 export interface TimelineDeltaItem {
   cursor: number;
   event: TimelineEvent;

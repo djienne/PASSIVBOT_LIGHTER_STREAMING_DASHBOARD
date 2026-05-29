@@ -129,3 +129,21 @@ async def pnl_curve() -> dict:
         "starting_capital": starting_capital.value,
         "points": points,
     }
+
+
+@router.get("/api/equity-curve")
+async def equity_curve() -> dict:
+    """5-minute mark-to-market samples (baseline + total_pnl, i.e. realized +
+    unrealized) reconstructed from persisted metrics snapshots. Dashboard-only."""
+    starting_capital = await repos.resolve_starting_capital()
+    curve = await repos.historical_equity_curve(starting_capital.value)
+    points = [
+        {"ts": ts, "equity": eq, "total_pnl": eq - starting_capital.value}
+        for ts, eq in curve
+    ]
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "server_time": now_ms(),
+        "baseline": starting_capital.value,
+        "points": points,
+    }

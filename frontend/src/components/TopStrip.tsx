@@ -20,7 +20,7 @@ function MetricCard(props: {
     <div className="pane px-4 py-3 min-w-0 flex flex-col justify-between gap-1">
       <div className="pane-heading">{props.label}</div>
       <div className={`metric-value text-2xl ${toneClass}`}>{props.value}</div>
-      {props.sub && <div className="text-subtle text-xs font-mono">{props.sub}</div>}
+      {props.sub && <div className="text-subtle text-xs font-mono whitespace-pre-line">{props.sub}</div>}
       {props.note && <div className="text-[10px] uppercase tracking-[0.16em] text-bull font-semibold">{props.note}</div>}
       {props.accent && (
         <div className="absolute inset-x-4 top-0 h-0.5 rounded-b-full" style={{ background: props.accent }} />
@@ -107,7 +107,7 @@ export default function TopStrip() {
       <MetricCard
         label="sharpe"
         value={fmtNumber(metrics.sharpe, 2)}
-        sub="5m samples"
+        sub={"annualized\n5m samples"}
       />
       <MetricCard
         label="max drawdown"

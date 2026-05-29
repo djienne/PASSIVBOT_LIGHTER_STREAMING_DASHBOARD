@@ -75,7 +75,14 @@ async def compute_snapshot() -> MetricsSnapshot:
         dd_curve = fill_curve
 
     dd = drawdown(dd_curve)
-    sharpe = sharpe_from_equity(fill_curve, interval_seconds=300) if fill_curve else 0.0
+    # Sharpe is computed from the mark-to-market equity curve — total capital
+    # INCLUDING unrealized PnL — sampled on a ~5-minute grid. historical_curve
+    # comes from the persisted 5-minute metrics snapshots (baseline + total_pnl,
+    # so unrealized is already baked in). sharpe_from_equity() resamples it onto
+    # a fixed 5-min grid before computing returns. Falls back to the fill-derived
+    # curve only before any snapshots exist (cold start).
+    sharpe_curve = historical_curve if historical_curve else fill_curve
+    sharpe = sharpe_from_equity(sharpe_curve, interval_seconds=300) if sharpe_curve else 0.0
 
     closes = [f for f in fills if f.pnl != 0]
     wins = [f.pnl for f in closes if f.pnl > 0]

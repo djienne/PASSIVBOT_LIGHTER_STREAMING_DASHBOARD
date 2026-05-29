@@ -11,7 +11,7 @@ import {
 } from "lightweight-charts";
 import type { AutoscaleInfoProvider, MouseEventParams } from "lightweight-charts";
 import { useDash } from "../lib/store";
-import { fetchPnlCurve } from "../lib/api";
+import { fetchEquityCurve, fetchPnlCurve } from "../lib/api";
 import { fmtPct, polarity } from "../lib/format";
 import {
   formatSignedQuoteAmount,
@@ -19,7 +19,7 @@ import {
   formatTradeQty,
   tradeAction,
 } from "../lib/tradeLabels";
-import type { PnlCurvePoint, Side, TimelineEvent } from "../lib/types";
+import type { EquityCurvePoint, MetricsSnapshot, PnlCurvePoint, Side, TimelineEvent } from "../lib/types";
 
 const BG = "#05070d";
 const GRID = "#111827";
@@ -28,6 +28,7 @@ const FILL_AREA = "rgba(96, 165, 250, 0.12)";
 const ZERO_LINE = "#334155";
 const BUY_DOT = "#34d399";
 const SELL_DOT = "#f87171";
+const MTM_LINE = "#a78bfa";
 
 type CurvePoint = { time: Time; value: number };
 type MarkerDetail = {
@@ -154,6 +155,36 @@ function buildCurves(tradesInput: CurveTrade[], symbol: string): {
   return { dollar, markers, markerDetails, buyCount, sellCount };
 }
 
+// Mark-to-market total PnL (realized + unrealized) sampled from the persisted
+// 5-minute snapshots, with a live tail point from the current metrics so the line
+// tracks the open position between snapshots. Plotted on the same zero-centered
+// axis as the realized curve, so the gap between the two lines = unrealized PnL.
+function buildMtmCurve(points: EquityCurvePoint[], live: MetricsSnapshot | null): CurvePoint[] {
+  const sorted = points.slice().sort((a, b) => a.ts - b.ts);
+  const out: CurvePoint[] = [];
+  let lastBucket: number | null = null;
+  // Lightweight-Charts uses second-granularity time keys; collapse same-second
+  // samples to the latest so setData doesn't throw "data must be asc ordered".
+  for (const p of sorted) {
+    const bucket = Math.floor(p.ts / 1000);
+    if (bucket === lastBucket) {
+      out[out.length - 1] = { time: bucket as Time, value: p.total_pnl };
+      continue;
+    }
+    out.push({ time: bucket as Time, value: p.total_pnl });
+    lastBucket = bucket;
+  }
+  if (live) {
+    const bucket = Math.floor(live.ts / 1000);
+    if (lastBucket == null || bucket > lastBucket) {
+      out.push({ time: bucket as Time, value: live.total_pnl });
+    } else if (bucket === lastBucket) {
+      out[out.length - 1] = { time: bucket as Time, value: live.total_pnl };
+    }
+  }
+  return out;
+}
+
 function paddedAutoscale(baseRange: { minValue: number; maxValue: number }): { minValue: number; maxValue: number } {
   const min = Math.min(baseRange.minValue, 0);
   const max = Math.max(baseRange.maxValue, 0);
@@ -188,11 +219,13 @@ export default function PnlCurvePanel() {
   const metrics = useDash(s => s.metrics);
   const symbol = useDash(s => s.symbol);
   const [history, setHistory] = useState<PnlCurvePoint[]>([]);
+  const [equityHistory, setEquityHistory] = useState<EquityCurvePoint[]>([]);
   const [hoveredTrade, setHoveredTrade] = useState<MarkerDetail | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const dollarSeriesRef = useRef<ISeriesApi<"Area"> | null>(null);
+  const mtmSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const zeroLineRef = useRef<ReturnType<ISeriesApi<"Area">["createPriceLine"]> | null>(null);
   const markerDetailsRef = useRef<Map<string, MarkerDetail>>(new Map());
 
@@ -212,6 +245,26 @@ export default function PnlCurvePanel() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const curve = await fetchEquityCurve();
+        if (!cancelled) setEquityHistory(curve.points);
+      } catch {
+        // No persisted snapshots yet, or endpoint unavailable: the live metrics
+        // tail alone still draws a (short) mark-to-market line.
+      }
+    };
+    load();
+    // Refresh the persisted 5-min points so a long-open session stays current.
+    const id = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
   const tradeEvents = useMemo<CurveTrade[]>(() => {
     const byId = new Map<string, CurveTrade>();
     for (const point of history) {
@@ -226,6 +279,7 @@ export default function PnlCurvePanel() {
   }, [history, timeline]);
 
   const curves = useMemo(() => buildCurves(tradeEvents, symbol), [tradeEvents, symbol]);
+  const mtmCurve = useMemo(() => buildMtmCurve(equityHistory, metrics), [equityHistory, metrics]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -259,6 +313,18 @@ export default function PnlCurvePanel() {
       autoscaleInfoProvider: pnlAutoscaleInfoProvider,
     });
 
+    const mtmSeries = chart.addLineSeries({
+      color: MTM_LINE,
+      lineWidth: 2,
+      priceScaleId: "right",
+      priceFormat: {
+        type: "custom",
+        formatter: (value: number) => formatSignedQuoteAmount(value) ?? "0.00 USDC",
+      },
+      autoscaleInfoProvider: pnlAutoscaleInfoProvider,
+      crosshairMarkerVisible: false,
+    });
+
     zeroLineRef.current = dollarSeries.createPriceLine({
       price: 0,
       color: ZERO_LINE,
@@ -278,12 +344,14 @@ export default function PnlCurvePanel() {
 
     chartRef.current = chart;
     dollarSeriesRef.current = dollarSeries;
+    mtmSeriesRef.current = mtmSeries;
 
     return () => {
       chart.unsubscribeCrosshairMove(handleCrosshairMove);
       chart.remove();
       chartRef.current = null;
       dollarSeriesRef.current = null;
+      mtmSeriesRef.current = null;
       zeroLineRef.current = null;
     };
   }, []);
@@ -302,6 +370,12 @@ export default function PnlCurvePanel() {
     dollarSeriesRef.current.setMarkers(curves.markers);
     chartRef.current?.timeScale().fitContent();
   }, [curves]);
+
+  useEffect(() => {
+    // No fitContent() here: the realized-curve effect above handles the view fit on
+    // trade changes; refitting on every ~3s metrics tick would reset the user's pan.
+    mtmSeriesRef.current?.setData(mtmCurve);
+  }, [mtmCurve]);
 
   const totalDollar = curves.dollar.length ? curves.dollar[curves.dollar.length - 1].value : 0;
   const totalPct = baseline > 0 ? (totalDollar / baseline) * 100 : 0;
@@ -327,7 +401,11 @@ export default function PnlCurvePanel() {
         <div className="flex items-center gap-4 text-xs font-mono">
           <span className="hidden 2xl:flex items-center gap-1.5 text-subtle">
             <span className="inline-block w-3 h-[2px]" style={{ background: DOLLAR_LINE }} />
-            USDC curve
+            realized
+          </span>
+          <span className="hidden 2xl:flex items-center gap-1.5 text-subtle">
+            <span className="inline-block w-3 h-[2px]" style={{ background: MTM_LINE }} />
+            mark-to-market
           </span>
           <span className="hidden xl:inline text-subtle">
             vs {baseline.toFixed(2)} USDC start
