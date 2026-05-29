@@ -296,7 +296,16 @@ export default function PnlCurvePanel() {
         scaleMargins: { top: 0.1, bottom: 0.1 },
       },
       leftPriceScale: { borderColor: "#1e2638", visible: false },
-      timeScale: { borderColor: "#1e2638", timeVisible: true, secondsVisible: false },
+      timeScale: {
+        borderColor: "#1e2638",
+        timeVisible: true,
+        secondsVisible: false,
+        // The mark-to-market series has one point per ~5-min snapshot (thousands of
+        // bars over the bot's lifetime). Lower the per-bar floor well below the 0.5
+        // default so fitContent() can compress the entire history into view instead
+        // of cropping the oldest bars.
+        minBarSpacing: 0.001,
+      },
       crosshair: { mode: CrosshairMode.Normal },
       autoSize: true,
     });
@@ -372,9 +381,11 @@ export default function PnlCurvePanel() {
   }, [curves]);
 
   useEffect(() => {
-    // No fitContent() here: the realized-curve effect above handles the view fit on
-    // trade changes; refitting on every ~3s metrics tick would reset the user's pan.
     mtmSeriesRef.current?.setData(mtmCurve);
+    // Re-fit after the dense mark-to-market series updates so the chart always shows
+    // the full period since bot start (and keeps growing as new snapshots arrive).
+    // setData on this many-point series otherwise auto-scrolls and crops the left.
+    chartRef.current?.timeScale().fitContent();
   }, [mtmCurve]);
 
   const totalDollar = curves.dollar.length ? curves.dollar[curves.dollar.length - 1].value : 0;
